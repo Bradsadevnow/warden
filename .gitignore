@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Regenerable run output. Anything worth keeping gets moved into evidence/.
+demo/evidence_*.json
+demo/receipts_*.json
+demo/sample_*.json

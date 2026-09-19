@@ -1,0 +1,106 @@
+
+=== turn 1 ===
+MODEL: 
+
+=== turn 2 ===
+MODEL: 
+
+=== turn 3 ===
+MODEL: 
+
+=== turn 4 ===
+MODEL: 
+
+=== turn 5 ===
+MODEL: 
+
+=== turn 6 ===
+MODEL: 
+
+=== turn 7 ===
+MODEL: 
+
+=== turn 8 ===
+MODEL: 
+
+=== turn 9 ===
+MODEL: 
+
+=== turn 10 ===
+MODEL: 
+
+=== turn 11 ===
+MODEL: 
+
+=== turn 12 ===
+MODEL: 
+
+=== turn 13 ===
+MODEL: 
+
+=== turn 14 ===
+MODEL: 
+
+=== turn 15 ===
+MODEL: 
+
+=== turn 16 ===
+MODEL: 
+
+=== turn 17 ===
+MODEL: 
+
+=== turn 18 ===
+MODEL: {"tool":"list_dir","args":{"path":"."}}
+  list_dir({'path': '.'}) -> README.md
+action_surface.py
+actions.py
+ai_broker.py
+ai_live.py
+ai_pregame.py
+ai_trace.py
+aibase.py
+cards.py
+cli_base.py
+data/
+dpg_ui.py
+engine.py
+game_state.py
+player_state.py
+run_game.py
+server/
+spec.md
+tools/
+tui_base.py
+
+=== turn 19 ===
+MODEL: 
+
+=== turn 20 ===
+MODEL: 
+
+=== turn 21 ===
+MODEL: 
+
+=== turn 22 ===
+MODEL: 
+
+=== turn 23 ===
+MODEL: 
+
+=== turn 24 ===
+MODEL: 
+
+=== turn 25 ===
+MODEL: 
+
+=== turn 26 ===
+MODEL: 
+
+=== turn 27 ===
+MODEL: 
+
+=== turn 28 ===
+MODEL: 
+
+===== RESULT: 0 evidence-verified finding(s), turns used 28 =====

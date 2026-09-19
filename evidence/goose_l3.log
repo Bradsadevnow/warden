@@ -1,0 +1,47 @@
+
+    __( O)>  ● new session · ollama qwen2.5-coder:14b
+   \____)    20260915_5 · /tmp/claude-1000/mtg-baseline
+     L L     goose is ready
+
+  ────────────────────────────────────────
+  ▸ tree
+    path: /tmp/claude-1000/mtg-baseline
+
+
+  ────────────────────────────────────────
+  ▸ read_resource extensionmanager
+    uri: mtg_core/README.md
+    extension_name: mtg_core
+
+
+  ────────────────────────────────────────
+  ▸ list_resources extensionmanager
+    extension_name: null
+
+
+  ────────────────────────────────────────
+  ▸ read_resource extensionmanager
+    uri: (ui://apps/clock)
+    extension_name: clock
+
+
+  ────────────────────────────────────────
+  ▸ load_skill
+    name: <skill_name>
+
+
+  ────────────────────────────────────────
+  ▸ list_resources extensionmanager
+    extension_name: null
+
+
+  ────────────────────────────────────────
+  ▸ list_resources extensionmanager
+
+I'm ready to assist you with loading and delegating tasks based on the various roles and expertise listed. Please let me know if there's a specific role or task you need help with, along with the associated source name. For example:
+
+- Use `load(source: "Search Query Analyst")` to load the Search Query Analyst's capabilities into our context.
+- Use `delegate(source: "Security Architect")` to delegate a threat modeling project to the Security Architect.
+
+Feel free to specify the task or role you need assistance with!
+GOOSE_L3_DONE rc=0

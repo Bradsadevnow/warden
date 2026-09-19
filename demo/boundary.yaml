@@ -1,0 +1,97 @@
+# THE TASK BOUNDARY.
+# This file declares what the agent is allowed to be. It is not documentation —
+# the kernel compiles it into the gate. Nothing in the code below knows what an
+# "order" is; it knows only what this file says.
+
+task: order_support
+description: >
+  A support assistant for a small store. It can look things up and annotate
+  them. It cannot move money beyond a hard ceiling, and it cannot destroy
+  records at all.
+
+# Canonical state the gate is permitted to write. Anything outside is out of scope.
+state_scope:
+  - "orders/*"
+  - "outbox"      # send_message writes here, so it is declared here
+
+# AGGREGATE CONSTRAINTS. These are facts about resulting state, not about any
+# one action. A per-action ceiling cannot express them: four in-policy refunds
+# of $50 compose into $200, and every individual check passes.
+#
+# Declared as {field, op, vs} triples rather than an expression so they stay
+# greppable and there is nothing to evaluate. The gate applies an effect to a
+# COPY of canonical state, tests these against the result, and commits only if
+# they all hold -- so an action that would breach one never lands at all.
+invariants:
+  - name: refund_never_exceeds_the_order
+    scope: "orders/*"
+    field: refunded_cents
+    op: "<="
+    vs_field: total_cents
+
+  - name: total_refund_per_order_capped
+    scope: "orders/*"
+    field: refunded_cents
+    op: "<="
+    vs_value: 5000
+
+  # BOOK-LEVEL. The three above bound each order on its own. This one bounds the
+  # whole book at once: per-position limits with no aggregate limit is the same
+  # failure class one level up, and a per-order cap cannot express it -- every
+  # order can sit inside its own cap while the total runs away.
+  - name: refunded_across_the_book_capped
+    scope: "orders/*"
+    aggregate: sum
+    field: refunded_cents
+    op: "<="
+    vs_value: 7500
+
+verbs:
+
+  lookup_order:
+    permitted: true
+    writes: false
+    args:
+      order_id: {type: str, pattern: "^A-[0-9]{4}$"}
+
+  add_note:
+    permitted: true
+    writes: true
+    args:
+      order_id: {type: str, pattern: "^A-[0-9]{4}$"}
+      text:     {type: str, max_len: 200}
+
+  issue_refund:
+    permitted: true
+    writes: true
+    args:
+      order_id:     {type: str, pattern: "^A-[0-9]{4}$"}
+      amount_cents: {type: int, min: 1, max: 5000}   # hard ceiling: $50.00
+
+  # SECOND EXECUTION TOOL. Outward-facing: this one leaves the building.
+  send_message:
+    permitted: true
+    writes: true
+    # PRECONDITION. Reads session history, not just this nomination. The outbound
+    # channel opens for exactly one action after a refund actually lands on that
+    # order, and closes again immediately. A resend is a human's job, not the
+    # agent's -- the agent has no authority to talk about a refund it did not
+    # just make.
+    requires:
+      verb: issue_refund
+      matching_arg: order_id
+      immediately: true     # must be the LAST admitted action, not merely an earlier one
+    args:
+      order_id: {type: str, pattern: "^A-[0-9]{4}$"}
+      # The model chooses WHICH message. It does not write one. There is no
+      # free-text arg on this verb, so a false amount is not a thing it can
+      # type -- the runtime composes the sentence from canonical state.
+      template: {type: str, enum: [refund_processed, order_status]}
+
+  # Declared so the model has a name for it, and so a request for it is a
+  # DENY WITH A RECEIPT rather than an unparseable mystery. Never authorized.
+  cancel_order:
+    permitted: false
+    writes: true
+    args:
+      order_id: {type: str, pattern: "^A-[0-9]{4}$"}
