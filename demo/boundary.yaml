@@ -14,6 +14,35 @@ state_scope:
   - "orders/*"
   - "outbox"      # send_message writes here, so it is declared here
 
+# WHO. The boundary above is the outer ceiling: nothing here can permit a verb the
+# boundary does not authorize. Principals and policy narrow it per actor. Groups
+# inherit through `includes` (a supervisor is also support); the kernel flattens
+# all of it when it compiles, so nothing about a group is looked up at decision time.
+groups:
+  support: {}
+  supervisors: {includes: [support]}
+
+principals:
+  support_bot: {kind: agent, groups: [support]}     # the chatbot's runtime identity
+  sam:         {kind: human, groups: [supervisors]} # a person who holds a signing key
+
+# POLICY. Deny beats everything. No matching allow is a deny. Hold rules are
+# conjunctive and need a fresh signature from one of their approvers, who can never
+# be the principal acting. Soft limits hold; hard limits (the invariants) deny.
+policy:
+  - id: support-day-to-day
+    effect: allow
+    to: [group:support]
+    verbs: [lookup_order, add_note, issue_refund, send_message]
+
+  - id: large-refund-needs-a-supervisor
+    effect: hold
+    to: [group:support]
+    verbs: [issue_refund]
+    when: {arg: amount_cents, op: ">", value: 2500}     # over $25.00
+    approvers: [group:supervisors]
+    ttl: 120
+
 # AGGREGATE CONSTRAINTS. These are facts about resulting state, not about any
 # one action. A per-action ceiling cannot express them: four in-policy refunds
 # of $50 compose into $200, and every individual check passes.

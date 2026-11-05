@@ -4,18 +4,31 @@ Every /turn is a real call to LM Studio and a real adjudication by the same
 kernel.py the tests use. The page cannot show you a receipt that did not just
 happen.
 """
-import collections, json, os, re, threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import agent, invariants, kernel, tools
+import base64, collections, hashlib, json, os, re, threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import agent, invariants, kernel, lm, tools
 
 LOCK = threading.Lock()
-SESSION = {"gate": agent.new_gate(), "turns": 0}
+APPROVERS = {}      # id -> raw public key. Survives /reset; only PUBLIC keys live here.
+SESSION = {"gate": agent.new_gate(APPROVERS), "turns": 0}
 
 
 def reset():
     with LOCK:
-        SESSION["gate"] = agent.new_gate()
+        SESSION["gate"] = agent.new_gate(APPROVERS)
         SESSION["turns"] = 0
+
+
+def approval_state():
+    g = SESSION["gate"]
+    now = g.clock()
+    return {"approvers": {i: hashlib.sha256(k).hexdigest()[:16] for i, k in sorted(g.approvers.items())},
+            "enrollable": [p for p, d in g.b.principals.items()
+                           if d["kind"] == "human" and p not in g.approvers],
+            "now": now, "boundary": g.boundary_hash(),
+            "pending": [{"nonce": n, "canonical": g.canonical(n), "expires": p["expires"],
+                         "approvers": p["approvers"], "holds": p["holds"]}
+                        for n, p in g.pending.items() if p["expires"] > now]}
 
 
 def attempt_analysis(model_output):
@@ -103,15 +116,26 @@ def prevented(g):
 
 def snapshot():
     g = SESSION["gate"]
-    viol = invariants.audit(g.receipts, g.state, SESSION["turns"])
+    viol = invariants.audit(g.receipts, g.state, SESSION["turns"], g.approvers)
     return {"state": g.state,
             "turns": SESSION["turns"],
             "admitted": sum(1 for r in g.receipts if r["decision"] == "ACCEPT"),
             "denied": sum(1 for r in g.receipts if r["decision"] == "DENY"),
+            "held": sum(1 for r in g.receipts if r["decision"] == "HOLD"),
             "violations": viol,
-            "boundary": g.b.attestation(),
+            "boundary": g.attestation(),
+            "pending_approvals": len(g.pending),
             "prevented": prevented(g),
             "receipts": g.receipts[-40:]}
+
+
+def _page(handler, name):
+    b = open(os.path.join(os.path.dirname(__file__), name), "rb").read()
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(b)))
+    handler.end_headers()
+    handler.wfile.write(b)
 
 
 class H(BaseHTTPRequestHandler):
@@ -134,6 +158,11 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(b)))
             self.end_headers()
             self.wfile.write(b)
+        elif self.path == "/approve":
+            _page(self, "approve.html")
+        elif self.path == "/approval/state":
+            with LOCK:
+                self._send(approval_state())
         elif self.path == "/state":
             with LOCK:
                 self._send(snapshot())
@@ -153,16 +182,23 @@ class H(BaseHTTPRequestHandler):
             reset()
             with LOCK:
                 return self._send(snapshot())
+        if self.path == "/enroll":
+            return self._enroll(body)
+        if self.path == "/approve":
+            return self._approve(body)
         if self.path != "/turn":
             return self._send({"error": "not found"}, 404)
         text = (body.get("text") or "").strip()
         if not text:
             return self._send({"error": "empty"}, 400)
         try:
+            # The model call is slow and takes no lock; only adjudication does, so
+            # the approval screen stays responsive while a turn is in flight.
+            raw = lm.complete(agent.SYSTEM, text, temperature=body.get("temperature", 0.4))
             with LOCK:
                 g = SESSION["gate"]
                 before = json.loads(json.dumps(g.state))
-                raw, receipt = agent.turn(text, g, temperature=body.get("temperature", 0.4))
+                receipt = g.adjudicate(raw)
                 SESSION["turns"] += 1
                 snap = snapshot()
             self._send({"user": text, "model_output": raw, "receipt": receipt,
@@ -171,7 +207,31 @@ class H(BaseHTTPRequestHandler):
         except Exception as e:
             self._send({"error": f"{type(e).__name__}: {e}"}, 502)
 
+    def _enroll(self, body):
+        """First-use enrolment of a human principal's PUBLIC key. The gate refuses
+        agents, unknown names and any principal that already has a key. The private
+        key never reaches this process."""
+        try:
+            pub = base64.b64decode(body["public_key"], validate=True)
+            with LOCK:
+                SESSION["gate"].enroll(str(body["principal"]), pub)
+                APPROVERS.update(SESSION["gate"].approvers)
+                return self._send(approval_state())
+        except (KeyError, ValueError, kernel.AuthzError) as e:
+            self._send({"error": str(e)}, 400)
+
+    def _approve(self, body):
+        try:
+            sig = base64.b64decode(body["signature"], validate=True)
+            with LOCK:
+                g = SESSION["gate"]
+                receipt = g.approve(str(body["nonce"]), str(body["approver"]), sig)
+                SESSION["turns"] += 1          # the release is a receipted attempt
+                self._send({"receipt": receipt, **approval_state()})
+        except (KeyError, ValueError, kernel.AuthzError) as e:
+            self._send({"error": str(e)}, 400)
+
 
 if __name__ == "__main__":
-    print("live demo on http://127.0.0.1:8077")
-    HTTPServer(("127.0.0.1", 8077), H).serve_forever()
+    print("live demo on http://127.0.0.1:8077   approval screen on http://127.0.0.1:8077/approve")
+    ThreadingHTTPServer(("127.0.0.1", 8077), H).serve_forever()

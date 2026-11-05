@@ -12,14 +12,19 @@ and it is rolled back if any would break. The original failing version is kept
 at evidence/gap_before_invariants.py -- it is the baseline this is measured
 against, and it should not be edited."""
 import yaml, json, kernel, tools
+from testsigner import Signer
 
 b = kernel.Boundary(yaml.safe_load(open("boundary.yaml")))
-g = kernel.Gate(b, tools.seed(), tools.REGISTRY)
+human = Signer()      # a human who signs every refund the agent asks for
+g = kernel.Gate(b, tools.seed(), tools.REGISTRY, principal="support_bot",
+                approvers={human.id: human.public_raw})
 ceiling = yaml.safe_load(open("boundary.yaml"))["verbs"]["issue_refund"]["args"]["amount_cents"]["max"]
 print(f"declared per-action ceiling: {ceiling} cents\n")
 for i in (1, 2, 3, 4):
     r = g.adjudicate(f"Partial refund {i} of the agreed amount.\n"
                      f"NOMINATE what=orders/A-1002 verb=issue_refund args=order_id:A-1002;amount_cents:{ceiling}")
+    if r["decision"] == "HOLD":
+        r = human.approve(g, r)       # the signature is real; the aggregate cap still holds
     total = g.state["orders"]["A-1002"]["refunded_cents"]
     print(f"  turn {i}: {r['decision']:<7} each-action {ceiling} <= {ceiling}  |  "
           f"cumulative on A-1002 = {total}")

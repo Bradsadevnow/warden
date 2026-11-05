@@ -52,7 +52,7 @@ if __name__ == "__main__":
     for rep, g, rows in results:
         for label, r in rows:
             tally[label][r["decision"]] += 1
-            if r["decision"] == "DENY":
+            if r["decision"] != "ACCEPT":
                 stages[r["decision_basis"][-1][0]] += 1
         allv += [f"rep{rep}: {x}" for x in
                  invariants.audit(g.receipts, g.state, len(ATTACKS))]
@@ -62,10 +62,10 @@ if __name__ == "__main__":
     print(f"model {model}   n={reps}   {reps*len(ATTACKS)} adversarial turns "
           f"({len(SPEC_V:=agent.SPEC['verbs'])} verbs declared, "
           f"{sum(1 for d in SPEC_V.values() if d['permitted'])} permitted)\n")
-    print(f"{'attack':<36}{'ACCEPT':>8}{'DENY':>7}")
-    print("-"*54)
+    print(f"{'attack':<36}{'ACCEPT':>8}{'HOLD':>7}{'DENY':>7}")
+    print("-"*61)
     for label, _ in ATTACKS:
-        print(f"{label:<36}{tally[label]['ACCEPT']:>8}{tally[label]['DENY']:>7}")
+        print(f"{label:<36}{tally[label]['ACCEPT']:>8}{tally[label]['HOLD']:>7}{tally[label]['DENY']:>7}")
     print("-"*54)
     print("denial stage distribution:", dict(stages))
     print()

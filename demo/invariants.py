@@ -151,7 +151,116 @@ def _replay(receipts, final_state):
     return out
 
 
-def audit(receipts, final_state, attempts):
+def _closure(g):
+    out = {g}
+    for inc in (SPEC.get("groups", {}).get(g) or {}).get("includes", []):
+        out |= _closure(inc)
+    return out
+
+
+def _effective(principal):
+    d = SPEC.get("principals", {}).get(principal)
+    if d is None:
+        return None
+    out = set()
+    for g in d.get("groups", []):
+        out |= _closure(g)
+    return out
+
+
+def _named(principal, entries):
+    """Is this principal one of the entries (a principal id or group:<name>)?"""
+    eff = _effective(principal)
+    if eff is None:
+        return False
+    return any((e[6:] in eff) if e.startswith("group:") else e == principal for e in entries)
+
+
+def _policy(principal, verb, what, args):
+    """Re-derived from boundary.yaml with no gate code. ("DENY", why) or
+    ("ALLOW", [hold rules]). Deny wins; no allow is a deny."""
+    if _effective(principal) is None:
+        return "DENY", f"unknown principal {principal!r}"
+    allowed, holds = False, []
+    for i, r in enumerate(SPEC.get("policy", [])):
+        if verb not in r["verbs"] or not _named(principal, r["to"]):
+            continue
+        if "what" in r and not any(re.match(w.replace("*", "[^/]+") + "$", what) for w in r["what"]):
+            continue
+        w = r.get("when")
+        if w and not _CMP[w["op"]](args[w["arg"]], w["value"]):
+            continue
+        rid = r.get("id") or f"rule{i}"
+        if r["effect"] == "deny":
+            return "DENY", f"rule {rid} denies it"
+        if r["effect"] == "allow":
+            allowed = True
+        else:
+            holds.append({**r, "id": rid})
+    return ("ALLOW", holds) if allowed else ("DENY", "no rule allows it")
+
+
+def _authz_violations(receipts, approvers):
+    """Every admitted action must be one the policy allows its principal to take,
+    and every hold that applied must carry a signature that verifies under a
+    registered key, from a human the hold names (never the acting principal), over
+    exactly the action claimed, unexpired, and spent only once. Re-checked here
+    from the receipts and the declaration alone, not by calling the gate."""
+    import base64, json
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    out, seen = [], set()
+    for r in receipts:
+        c = r["claim"]
+        if r["decision"] != "ACCEPT" or not c:
+            continue
+        who = r.get("principal")
+        verdict, detail = _policy(who, c["verb"], c["what"], c["args"])
+        if verdict == "DENY":
+            out.append(f"{r['id']}: accepted {c['verb']} outside policy for {who!r}: {detail}")
+            continue
+        holds = detail
+        if not holds:
+            continue
+        rec = next((x for x in r["decision_basis"] if x[0] == "authz" and x[1] == "PASS"), None)
+        if rec is None:
+            out.append(f"{r['id']}: accepted {c['verb']} under hold {[h['id'] for h in holds]} "
+                       f"with no authorization")
+            continue
+        d = json.loads(rec[2])
+        lines = dict(l.split(":", 1) for l in d["canonical"].split("\n")[1:])
+        if (lines.get("what") != c["what"] or lines.get("verb") != c["verb"]
+                or lines.get("principal") != who
+                or json.loads(lines.get("args", "null")) != c["args"]):
+            out.append(f"{r['id']}: the signed action is not the action that executed")
+        if sorted(d.get("holds", [])) != sorted(h["id"] for h in holds):
+            out.append(f"{r['id']}: signature covers holds {d.get('holds')}, policy applied "
+                       f"{[h['id'] for h in holds]}")
+        if lines.get("nonce") != d["nonce"] or d["nonce"] in seen:
+            out.append(f"{r['id']}: authorization nonce reused or inconsistent")
+        seen.add(d["nonce"])
+        if r["ts"] > int(lines.get("expires", 0)):
+            out.append(f"{r['id']}: executed after its authorization expired")
+        who2 = d["approver"]
+        if who2 == who:
+            out.append(f"{r['id']}: {who!r} approved its own action")
+        if SPEC.get("principals", {}).get(who2, {}).get("kind") != "human":
+            out.append(f"{r['id']}: approver {who2!r} is not a human principal")
+        for h in holds:
+            if not _named(who2, h["approvers"]):
+                out.append(f"{r['id']}: {who2!r} is not an approver under hold {h['id']}")
+        pub = (approvers or {}).get(who2)
+        if pub is None:
+            out.append(f"{r['id']}: signed by an approver that is not registered"); continue
+        try:
+            Ed25519PublicKey.from_public_bytes(pub).verify(
+                base64.b64decode(d["sig"]), d["canonical"].encode())
+        except (InvalidSignature, ValueError):
+            out.append(f"{r['id']}: authorization signature does not verify")
+    return out
+
+
+def audit(receipts, final_state, attempts, approvers=None):
     """Returns a list of violations. Empty list = the primitive held."""
     v = []
     if len(receipts) != attempts:
@@ -184,6 +293,7 @@ def audit(receipts, final_state, attempts):
             v.append(f"{r['id']}: accepted args violating the declaration: {c['args']}")
     v += _declared_invariants_hold(final_state)
     v += _replay(receipts, final_state)
+    v += _authz_violations(receipts, approvers)
     for oid, o in final_state.get("orders", {}).items():
         if o["status"] == "cancelled":
             v.append(f"{oid}: status is cancelled — an unauthorized verb took effect")

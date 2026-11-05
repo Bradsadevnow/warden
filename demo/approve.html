@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warden Approval Device</title>
+<style>
+  :root {
+    --bg: #070b14; --panel: rgba(14, 20, 36, .74); --line: rgba(120, 150, 210, .22);
+    --text: #e6ecf8; --mute: #8d9bb8; --cyan: #39c5ff; --amber: #ffb020;
+    --green: #3ddc84; --red: #ff5468;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  main { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; padding: 28px 16px 64px; }
+  @media (min-width: 960px) { main { margin-left: 8vw; } }
+  h1 { font-size: 13px; letter-spacing: .22em; text-transform: uppercase; color: var(--mute);
+    font-weight: 600; margin: 8px 0 18px; }
+  h1 b { color: var(--cyan); font-weight: 700; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; margin-bottom: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .k { color: var(--mute); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .v { font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+  .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px;
+    border: 1px solid var(--line); color: var(--mute); }
+  .chip.ok { color: var(--green); border-color: rgba(61,220,132,.4); }
+  .chip.warn { color: var(--amber); border-color: rgba(255,176,32,.4); }
+  .chip.bad { color: var(--red); border-color: rgba(255,84,104,.4); }
+  .title { font-size: 20px; font-weight: 650; text-transform: capitalize; }
+  .amount { font-size: 34px; font-weight: 700; letter-spacing: -.01em; margin: 6px 0 10px; }
+  .grid { display: grid; gap: 8px; margin: 12px 0; }
+  details { margin: 10px 0 14px; }
+  summary { cursor: pointer; color: var(--mute); font-size: 13px; }
+  pre { margin: 8px 0 0; padding: 12px; background: rgba(0,0,0,.35); border-radius: 10px;
+    overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #b8c6e6; }
+  .actions { display: flex; gap: 10px; margin-top: 6px; }
+  button { font: inherit; color: var(--text); border: 1px solid var(--line); background: transparent;
+    border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  button.go { flex: 1; position: relative; overflow: hidden; border-color: rgba(255,176,32,.5);
+    user-select: none; touch-action: none; }
+  button.go .fill { position: absolute; inset: 0; width: 0; background: rgba(255,176,32,.35); }
+  button.go span { position: relative; }
+  button.plain:hover { border-color: var(--mute); }
+  select { font: inherit; color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 12px; }
+  .note { color: var(--mute); font-size: 13px; }
+  .result { margin-top: 12px; font-size: 14px; }
+  .empty { text-align: center; color: var(--mute); padding: 34px 10px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<main>
+  <h1><b>Warden</b> &middot; approval device</h1>
+
+  <section class="panel" id="device">
+    <div class="row"><span class="k">This device</span><span class="chip" id="devstate">starting</span></div>
+    <div class="row" style="margin-top:8px"><span class="k">Key</span><span class="v mono" id="fp">-</span></div>
+    <p class="note" id="devnote" style="margin:10px 0 0">
+      The private key is created here and cannot be exported. The gate only ever receives the public half.
+      This screen shows the exact bytes you sign. It never shows anything the agent wrote.
+    </p>
+    <div class="actions" id="enrollrow" hidden>
+      <select id="who" aria-label="Principal to enroll this device as"></select>
+      <button class="plain" id="enroll">Enroll this device</button>
+    </div>
+  </section>
+
+  <div id="pending"></div>
+  <section class="panel empty" id="empty">Nothing is waiting. The agent has no held actions.</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag);
+  if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, "0")).join("");
+
+/* ---------- the scene: purely cosmetic, never involved in signing ---------- */
+const MOODS = { idle: 0x39c5ff, pending: 0xffb020, signed: 0x3ddc84, denied: 0xff5468 };
+let mood = "idle", moodUntil = 0, pulse = 0;
+function setMood(m, ms) { mood = m; moodUntil = ms ? performance.now() + ms : 0; if (m === "signed") pulse = 1; }
+
+(function scene() {
+  if (!window.THREE) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const canvas = $("#bg");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  cam.position.z = 7;
+  const color = new THREE.Color(MOODS.idle);
+
+  const seal = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 1),
+    new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.85 }));
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18 }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.012, 8, 160),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+  const group = new THREE.Group(); group.add(seal, core, ring); sc.add(group);
+
+  const N = 900, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 4 + Math.random() * 9, t = Math.random() * 6.2832, p = Math.acos(2 * Math.random() - 1);
+    pos[i * 3] = r * Math.sin(p) * Math.cos(t); pos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t);
+    pos[i * 3 + 2] = r * Math.cos(p) - 4;
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.035, transparent: true, opacity: 0.7 }));
+  sc.add(stars);
+
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false); cam.aspect = w / h;
+    group.position.set(w > 960 ? 3.1 : 0, w > 960 ? 0 : 2.6, 0);
+    group.scale.setScalar(w > 960 ? 1 : 0.7);
+    cam.updateProjectionMatrix();
+  }
+  addEventListener("resize", resize); resize();
+
+  let last = performance.now();
+  (function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (moodUntil && now > moodUntil) { mood = "idle"; moodUntil = 0; }
+    color.lerp(new THREE.Color(MOODS[mood]), Math.min(dt * 5, 1));
+    [seal, core, ring].forEach((m) => m.material.color.copy(color)); stars.material.color.copy(color);
+    const speed = reduce ? 0.04 : (mood === "pending" ? 0.9 : mood === "idle" ? 0.25 : 0.5);
+    seal.rotation.y += dt * speed; seal.rotation.x += dt * speed * 0.4;
+    core.rotation.y -= dt * speed * 1.4; stars.rotation.y += dt * 0.012;
+    pulse = Math.max(0, pulse - dt * 1.4);
+    const breathe = 1 + (mood === "pending" && !reduce ? Math.sin(now / 260) * 0.05 : 0);
+    ring.scale.setScalar(breathe + pulse * 0.9); ring.material.opacity = 0.6 * (1 - pulse * 0.7);
+    seal.scale.setScalar(1 + pulse * 0.25);
+    if (mood === "denied" && !reduce) group.rotation.z = Math.sin(now / 40) * 0.05 * Math.min(1, (moodUntil - now) / 600 + 0.2);
+    else group.rotation.z *= 0.85;
+    renderer.render(sc, cam); requestAnimationFrame(frame);
+  })(last);
+})();
+
+/* ---------- the device: a non-extractable Ed25519 key in IndexedDB ---------- */
+const idb = () => new Promise((res, rej) => { const r = indexedDB.open("warden-approver", 1);
+  r.onupgradeneeded = () => r.result.createObjectStore("k"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const dbGet = async (k) => { const d = await idb(); return new Promise((res, rej) => {
+  const q = d.transaction("k").objectStore("k").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); };
+const dbPut = async (k, v) => { const d = await idb(); return new Promise((res, rej) => {
+  const t = d.transaction("k", "readwrite"); t.objectStore("k").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); };
+
+const me = { id: null, fp: null, principal: null, pubB64: null, priv: null };
+let skew = 0, dismissed = new Set(), cards = new Map();
+
+async function initDevice() {
+  if (!window.crypto || !crypto.subtle || !indexedDB) throw new Error("This browser has no WebCrypto or IndexedDB");
+  let pair = await dbGet("pair");
+  if (!pair) {
+    try { pair = await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"]); }
+    catch (e) { throw new Error("This browser does not support Ed25519 signing (needs a current Chrome, Edge, Firefox or Safari)"); }
+    await dbPut("pair", pair);
+  }
+  const raw = await crypto.subtle.exportKey("raw", pair.publicKey);
+  me.priv = pair.privateKey; me.pubB64 = b64(raw);
+  me.fp = hex(await crypto.subtle.digest("SHA-256", raw)).slice(0, 16);
+  me.id = "device-" + me.fp.slice(0, 8);
+  $("#fp").textContent = me.id + "  " + me.fp;
+}
+
+function chip(text, cls) { const c = $("#devstate"); c.textContent = text; c.className = "chip " + (cls || ""); }
+
+/* ---------- reading what will be signed ---------- */
+function parseCanonical(text) {
+  const lines = text.split("\n"), f = {};
+  for (const l of lines.slice(1)) { const i = l.indexOf(":"); f[l.slice(0, i)] = l.slice(i + 1); }
+  f.args = JSON.parse(f.args); return f;
+}
+const money = (n) => "$" + (n / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+function card(p) {
+  const f = parseCanonical(p.canonical);
+  const box = el("section", "panel");
+  const top = el("div", "row"); top.append(el("div", "title", f.verb.replaceAll("_", " ")));
+  const left = el("span", "chip warn", ""); top.append(left); box.append(top);
+
+  const cents = Object.entries(f.args).find(([k]) => k.endsWith("_cents"));
+  if (cents) box.append(el("div", "amount", money(cents[1])));
+  const grid = el("div", "grid");
+  const addRow = (k, v) => { const r = el("div", "row"); r.append(el("span", "k", k), el("span", "v mono", String(v))); grid.append(r); };
+  addRow("acting principal", f.principal);
+  addRow("target", f.what);
+  for (const [k, v] of Object.entries(f.args)) addRow(k, k.endsWith("_cents") ? v + " cents" : v);
+  addRow("boundary", f.boundary.slice(0, 12));
+  box.append(grid);
+
+  const d = el("details"); d.append(el("summary", null, "The exact bytes you are signing"), el("pre", "mono", p.canonical));
+  box.append(d);
+
+  const row = el("div", "actions"), go = el("button", "go"), fill = el("div", "fill");
+  go.append(fill, el("span", null, "Hold to sign"));
+  const no = el("button", "plain", "Decline"); row.append(go, no); box.append(row);
+  const res = el("div", "result note"); res.setAttribute("aria-live", "polite"); box.append(res);
+
+  let raf = 0, timer = 0, t0 = 0, busy = false, holding = false;
+  const HOLD = 900;
+  // Completion is a timer so it never depends on animation frames; rAF only draws the fill.
+  const tick = (now) => { fill.style.width = Math.min((now - t0) / HOLD * 100, 100) + "%";
+    if (holding) raf = requestAnimationFrame(tick); };
+  const start = (e) => { if (busy || holding || e.repeat) return; holding = true; t0 = performance.now();
+    raf = requestAnimationFrame(tick); timer = setTimeout(() => { holding = false; sign(); }, HOLD); };
+  const stop = () => { if (!holding) return; holding = false; clearTimeout(timer); cancelAnimationFrame(raf);
+    if (!busy) fill.style.width = "0"; };
+  go.addEventListener("pointerdown", start);
+  ["pointerup", "pointerleave", "pointercancel", "blur"].forEach((n) => go.addEventListener(n, stop));
+  go.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); start(e); } });
+  go.addEventListener("keyup", stop);
+  no.addEventListener("click", () => { dismissed.add(p.nonce); sync(); });
+
+  const handle = { box, left, expires: p.expires, doneAt: 0 };
+  async function sign() {
+    busy = true; go.disabled = true; res.textContent = "Signing on this device...";
+    try {
+      const sig = await crypto.subtle.sign({ name: "Ed25519" }, me.priv, new TextEncoder().encode(p.canonical));
+      const r = await fetch("/approve", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nonce: p.nonce, approver: me.principal, signature: b64(sig) }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "rejected");
+      const last = j.receipt.decision_basis[j.receipt.decision_basis.length - 1];
+      if (j.receipt.decision === "ACCEPT") { res.textContent = "Signed. The gate admitted and executed it."; setMood("signed", 2600); }
+      else { res.textContent = "Signed, but the gate still denied it at " + last[0] + ": " + last[2]; setMood("denied", 2200); }
+      fill.style.width = "100%"; handle.doneAt = Date.now();
+    } catch (e) { res.textContent = "Not approved: " + e.message; setMood("denied", 2200); busy = false; go.disabled = false; fill.style.width = "0"; }
+    poll();
+  }
+  return handle;
+}
+
+function sync() {
+  const keep = new Set([...cards.keys()].filter((n) => !dismissed.has(n)));
+  for (const [n, c] of cards) if (!keep.has(n)) { c.box.remove(); cards.delete(n); }
+  $("#empty").hidden = cards.size > 0;
+  if (cards.size === 0 && mood === "pending") setMood("idle");
+}
+
+function render(s) {
+  skew = s.now * 1000 - Date.now();
+  const hit = Object.entries(s.approvers).find(([, fp]) => fp === me.fp);
+  me.principal = hit ? hit[0] : null;
+  const mine = !!me.principal;
+  const sel = $("#who");
+  if (sel.options.length !== s.enrollable.length || s.enrollable.some((p, i) => sel.options[i].value !== p)) {
+    sel.replaceChildren(...s.enrollable.map((p) => { const o = el("option", null, p); o.value = p; return o; }));
+  }
+  $("#enrollrow").hidden = mine || s.enrollable.length === 0;
+  if (mine) chip("approver: " + me.principal, "ok");
+  else chip("not enrolled", "warn");
+  const live = new Set(s.pending.map((p) => p.nonce));
+  for (const [n, c] of cards) if (!live.has(n) && !(c.doneAt && Date.now() - c.doneAt < 5000)) { c.box.remove(); cards.delete(n); }
+  if (mine) for (const p of s.pending) {
+    if (!p.approvers.includes(me.principal)) continue;
+    if (cards.has(p.nonce) || dismissed.has(p.nonce)) continue;
+    const c = card(p); cards.set(p.nonce, c); $("#pending").append(c.box); setMood("pending");
+  }
+  if (s.pending.length && !(mine && s.pending.some((p) => p.approvers.includes(me.principal))))
+    $("#empty").textContent = "Held actions exist, but none are yours to approve.";
+  sync();
+}
+
+async function poll() {
+  try { render(await (await fetch("/approval/state")).json()); }
+  catch (e) { chip("server unreachable", "bad"); }
+}
+setInterval(() => { const now = (Date.now() + skew) / 1000;
+  for (const c of cards.values()) { const left = Math.max(0, Math.round(c.expires - now));
+    c.left.textContent = left > 0 ? "expires in " + left + "s" : "expired"; } }, 500);
+
+$("#enroll").addEventListener("click", async () => {
+  const r = await fetch("/enroll", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ principal: $("#who").value, public_key: me.pubB64 }) });
+  const j = await r.json(); if (!r.ok) { chip(j.error || "enrolment failed", "bad"); return; }
+  setMood("signed", 1500); render(j);
+});
+
+initDevice().then(() => { poll(); setInterval(poll, 1500); })
+  .catch((e) => { chip("unsupported", "bad"); $("#devnote").textContent = e.message; $("#empty").hidden = true; });
+</script>
+</body>
+</html>

@@ -29,7 +29,7 @@ without calling gate code — because a gate that grades itself establishes noth
 
 ## What "passed every declared check" means
 
-An ordered pipeline. Each stage may only deny.
+An ordered pipeline. Each stage may only refuse (DENY, or HOLD for a human).
 
 ```
 schema        one nomination, matched literally against a fixed grammar;
@@ -38,7 +38,10 @@ what          target inside declared scope
 verb-auth     verb exists in the vocabulary AND is permitted
 args          arg names exact, no duplicates; types, patterns, ranges, enums satisfied
 bind          `what` equals the one target the verb declares for these args
+policy        the acting principal may do this: deny beats all, no allow is a deny
 precondition  required prior action LANDED (admitted and its effect applied)
+hold          if a hold rule applies: a human signature over this exact action from a
+              named approver (never the actor), unexpired, unspent. Else HOLD + challenge
 --- effect applies to a copy ---
 invariant     every declared invariant holds against the RESULTING state
 --- copy commits ---
@@ -47,6 +50,13 @@ invariant     every declared invariant holds against the RESULTING state
 The boundary is checked when it compiles: an unknown op or aggregate, a verb with no
 `what` binding, or an invariant with no limit refuses to compile. A missing field at
 invariant time is a breach, not a skip.
+
+**Human authorization.** The model decides what it wants, the gate decides whether it is
+permitted, and a human key decides whether a privileged action was actually authorized.
+The gate holds only public keys. A signature covers the exact action, a single-use nonce,
+an expiry from the gate's own clock, and a hash of the entire declaration (limits included),
+so it cannot be replayed, retargeted, or carried to a looser boundary. A signature does not
+make an action safe: every other stage, and the invariants, still run after it.
 
 Two orderings are load-bearing:
 
@@ -116,7 +126,8 @@ A control that does not do what its name implies is the failure this exists to p
 ## Not built
 
 Time-windowed constraints. Entitlement checks on `what`. Attestation as the first receipt
-so a run is anchored to the rules it ran under. Actor/role-scoped limits. Kernel/domain
+so a run is anchored to the rules it ran under. Capability grants (signed, bounded, delegable delegation). Agent authentication on
+nominations. Signed, chained receipts. Object-level conditions in policy (ownership). Kernel/domain
 separation — `kernel.py` is domain-agnostic, but `boundary.yaml`, `tools.py` and the
 prompt compiler in `agent.py` are still fused to one domain, so that separation is a
 claim and not yet a fact.

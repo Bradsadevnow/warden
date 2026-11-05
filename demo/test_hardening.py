@@ -4,7 +4,8 @@ import copy, yaml, kernel, tools, invariants
 
 SPEC = yaml.safe_load(open("boundary.yaml"))
 def gate(spec=SPEC, reg=tools.REGISTRY, state=None):
-    return kernel.Gate(kernel.Boundary(copy.deepcopy(spec)), state or tools.seed(), reg)
+    return kernel.Gate(kernel.Boundary(copy.deepcopy(spec)), state or tools.seed(), reg,
+                       principal="support_bot")
 def nom(what, verb, args): return f"why\nNOMINATE what={what} verb={verb} args={args}"
 def stage(r): return r["decision_basis"][-1][0]
 

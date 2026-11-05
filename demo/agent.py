@@ -31,6 +31,14 @@ def _verb_lines():
             else:
                 line += (f"\n        REQUIRES: you must have already used "
                          f"{req['verb']} on the same {req['matching_arg']} earlier in this session.")
+        for rule in SPEC.get("policy", []):
+            if rule["effect"] == "hold" and v in rule["verbs"]:
+                w = rule.get("when")
+                cond = f"when {w['arg']} {w['op']} {w['value']}" if w else "always"
+                line += (f"\n        HUMAN SIGNATURE: {cond}, the nomination is held, not executed, "
+                         f"until a human signs this exact action on a device you cannot reach. "
+                         f"Nothing has happened until then. You cannot sign, and you must not say "
+                         f"it is done.")
         out.append(line)
     return "\n".join(out)
 
@@ -73,5 +81,9 @@ def turn(user_text, gate, model="google/gemma-4-e4b", temperature=0.4):
     return out, gate.adjudicate(out)
 
 
-def new_gate():
-    return kernel.Gate(BOUNDARY, tools.seed(), tools.REGISTRY)
+PRINCIPAL = "support_bot"      # who this runtime IS, authenticated by the runtime, not chosen by the model
+
+
+def new_gate(approvers=None):
+    return kernel.Gate(BOUNDARY, tools.seed(), tools.REGISTRY, principal=PRINCIPAL,
+                       approvers=approvers)
