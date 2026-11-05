@@ -54,8 +54,9 @@ DONE
 - Owner is the approver: a hold rule can name `owner`; the compiler resolves it per agent (`approvers: [owner]`)
 - Approver identity, no trust-on-first-use: OIDC login (`oidc.py`: RS256/ES256 only, issuer, audience, expiry, nonce, verified email; `none`/HS256/key-confusion refused), a person is mapped by `login:` email and bound to the provider's `sub`; a login session is needed to enroll a device key (once) and to approve; approval = login (who) + device key (which device) + signature (which action). `standin_idp.py` is a LAB-ONLY identity provider used until a real one (Google, GitHub-OIDC, Microsoft) is configured in `idp.json`. Tests: `test_identity.py`. Browsers only allow the device key on `localhost`/HTTPS, so the approval page is reached through `ssh -L 8077:127.0.0.1:8077 brad@10.77.77.12`.
 
+- Door log: requests turned away before the gate (forged, replayed, stale, unknown agent, failed login, enrol/approve without a session, local-only controls hit from another host) are kept in a bounded log that never stores tokens, signatures, nonces or sessions, and are shown on the dashboard (header chip, agent warning, "Turned away" view). Tests: `test_door.py`
+
 NEXT, in order
-3. **Door log.** Requests refused before the gate (unsigned, forged, replayed, unknown agent) are recorded and shown on the dashboard.
 4. **Domains.** Each domain is a rulebook + tool module + seed data hosted by the one service, with its own agent and owner. Order: Accounting, IT, then Clinic.
 5. **Record-level rule** ("only its own assigned patients"), then Clinic.
 6. **Dashboard**: domain filter; approvals merged into the console.

@@ -53,7 +53,7 @@ class AgentAuth:
     def verify(self, principal, nonce, ts, output, signature_b64):
         """Raise AuthError unless this exact nomination was signed by the registered key
         for `principal`, recently, and never before. Returns the principal."""
-        pub = self.keys.get(principal)
+        pub = self.keys.get(principal) if isinstance(principal, str) else None
         if pub is None:
             raise AuthError("unknown agent")
         if not isinstance(nonce, str) or not NONCE.fullmatch(nonce):

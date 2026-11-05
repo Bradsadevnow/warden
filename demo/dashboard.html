@@ -93,6 +93,7 @@
   <h1><b>Warden</b></h1>
   <span class="chip live" id="live">connecting</span>
   <span class="sp"></span>
+  <a class="chip warn" id="doorChip" href="#activity" hidden></a>
   <span class="chip" id="audit">checking records</span>
 </header>
 
@@ -112,6 +113,7 @@
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="aMeta"></div>
   </div>
   <div class="panel"><h2>What it is allowed to do</h2><div id="aPerms"></div></div>
+  <div class="panel" id="aDoorPanel" hidden><h2>Turned away at the door</h2><ul class="feed" id="aDoor"></ul></div>
   <div class="panel" id="aWaitPanel" hidden><h2>Waiting for a person</h2><div id="aWait"></div></div>
   <div class="panel"><h2>What it has done</h2><ul class="feed" id="aFeed"></ul><div class="empty" id="aEmpty">Nothing yet.</div></div>
 </section>
@@ -130,6 +132,7 @@
       <button data-f="ACCEPT" aria-pressed="false">Allowed</button>
       <button data-f="HOLD" aria-pressed="false">Needed approval</button>
       <button data-f="DENY" aria-pressed="false">Not allowed</button>
+      <button data-f="DOOR" aria-pressed="false">Turned away</button>
     </div>
     <ul class="feed" id="feed"></ul>
     <div class="empty" id="feedEmpty">Nothing to show.</div>
@@ -217,6 +220,32 @@ function row(r, fresh, showAgent) {
   return li;
 }
 
+// Requests turned away before the gate: nobody proved who they were, so nothing was decided.
+function doorText(e) {
+  const who = e.claimed ? (S.names[e.claimed] || `"${e.claimed}"`) : "Someone";
+  switch (e.code) {
+    case "bad_signature": return `${who === "Someone" ? "Someone" : "Someone claiming to be " + who} couldn't prove who they were.`;
+    case "replay": return `A request from ${who} was sent a second time and refused.`;
+    case "stale": return `A request claiming to be ${who} was too old, or dated in the future.`;
+    case "unknown_agent": return `Someone claimed to be an agent that isn't registered${e.claimed ? ` (${who})` : ""}.`;
+    case "login_failed": return "A sign-in attempt didn't pass the identity check.";
+    case "no_session": return e.kind === "approve" ? "Someone tried to approve an action without signing in." : "Someone tried to set up a device without signing in.";
+    case "approval_refused": return `${who === "Someone" ? "A" : who + "'s"} approval was refused.`;
+    case "enroll_refused": return "A device set-up was refused.";
+    case "local_only": return "Someone on the network tried to use a control that only works on the Warden machine.";
+    default: return "A badly formed request was refused.";
+  }
+}
+function doorRow(e) {
+  const li = el("li"), top = el("div", "top");
+  top.append(el("span", "t", fmtT(e.ts)), el("span", "what", doorText(e)), el("span", "chip bad", "Turned away"));
+  li.append(top, el("div", "sub", "From " + e.ip + ". Nothing was decided, because they never proved who they were."));
+  const d = el("details"); d.append(el("summary", null, "Technical detail"));
+  d.append(el("pre", null, `door: ${e.kind}\ncode: ${e.code}\nreason: ${e.reason}\nclaimed: ${e.claimed}\nfrom: ${e.ip}`)); li.append(d);
+  return li;
+}
+const doorFor = (id, secs) => S.door.recent.filter((e) => e.claimed === id && e.ts > S.now - secs);
+
 function holdCard(p, withAgent) {
   const c = {}; for (const l of p.canonical.split("\n")) { const i = l.indexOf(":"); if (i > 0) c[l.slice(0, i)] = l.slice(i + 1); }
   const n = { verb: c.verb, what: c.what, args: {} };
@@ -232,6 +261,8 @@ function holdCard(p, withAgent) {
 function status(a) {
   const mine = A.pending.filter((p) => p.principal_id === a.id).length;
   const recent = S.receipts.filter((r) => r.principal === a.id && r.decision === "DENY" && r.ts > S.now - 60).length;
+  const knocks = doorFor(a.id, 3600).length;
+  if (knocks) return [`Someone tried to act as this agent ${knocks} time${knocks > 1 ? "s" : ""} and was turned away`, "warn"];
   if (mine) return ["Waiting for a person", "warn"];
   if (recent >= 5) return [`Refused ${recent} times in the last minute. Worth a look.`, "warn"];
   return ["Working normally", "ok"];
@@ -265,6 +296,9 @@ function renderAgent(id) {
     if (p.note) row.append(el("span", "n", p.note));
     perms.append(row);
   }
+  const knocks = doorFor(id, 86400).reverse();
+  $("#aDoorPanel").hidden = knocks.length === 0;
+  $("#aDoor").replaceChildren(...knocks.map(doorRow));
   const mine = A.pending.filter((p) => p.principal_id === id);
   $("#aWaitPanel").hidden = mine.length === 0;
   const w = $("#aWait"); w.replaceChildren(...mine.map((p) => holdCard(p)));
@@ -279,11 +313,19 @@ function renderInbox() {
 }
 let filter = "ALL";
 function renderActivity() {
+  if (filter === "DOOR") {
+    const ds = S.door.recent.slice().reverse();
+    $("#feedEmpty").hidden = ds.length > 0; $("#feedEmpty").textContent = "Nobody has been turned away.";
+    $("#feed").replaceChildren(...ds.map(doorRow)); return;
+  }
+  $("#feedEmpty").textContent = "Nothing to show.";
   const rs = S.receipts.slice().reverse().filter((r) => filter === "ALL" || r.decision === filter);
   $("#feedEmpty").hidden = rs.length > 0;
   $("#feed").replaceChildren(...rs.map((r) => row(r, fresh.has(r.id), true)));
 }
 function renderAudit() {
+  const hour = S.door.recent.filter((e) => e.ts > S.now - 3600).length, dc = $("#doorChip");
+  dc.hidden = hour === 0; dc.textContent = `${hour} turned away in the last hour`;
   const bad = S.violations.length > 0, c = $("#audit");
   c.className = "chip " + (bad ? "bad" : "ok");
   c.textContent = bad ? "Records don't add up" : "Records verified";
@@ -301,12 +343,14 @@ function go() {
   if (S) render();
 }
 document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => { location.hash = "#" + b.dataset.view; }));
+$("#doorChip").addEventListener("click", () => { setFilter("DOOR"); });
 window.addEventListener("hashchange", go);
-$("#filters").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  filter = b.dataset.f; document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+function setFilter(f) {
+  filter = f;
+  document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.f === f));
   if (S) renderActivity();
-});
+}
+$("#filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setFilter(b.dataset.f); });
 function render() {
   renderAudit(); renderInbox();
   if (route[0] === "agents") renderAgents();

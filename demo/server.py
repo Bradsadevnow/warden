@@ -42,6 +42,34 @@ def configure(agents_path=None, approvers_path=None, window=120, idp_path=None):
         IDENT = oidc.Identities(agent.BOUNDARY)
 
 
+# THE DOOR LOG. Requests turned away BEFORE the gate: the caller never proved who they
+# were, so nothing was adjudicated and no receipt exists. This is the record of someone
+# knocking. Bounded, so a flood cannot grow memory. It never stores a token, signature,
+# nonce or session: only who they CLAIMED to be (untrusted text, cleaned and truncated),
+# where from, and our own reason for refusing.
+DOOR = collections.deque(maxlen=500)
+DOOR_STATS = {"total": 0}
+DOOR_LOCK = threading.Lock()
+AGENT_CODES = {"unknown agent": "unknown_agent", "signature does not verify": "bad_signature",
+               "replayed nonce": "replay", "timestamp outside the accepted window": "stale"}
+
+
+def _claimed(x):
+    return "".join(c for c in str(x)[:40] if c.isprintable()) if isinstance(x, (str, int)) else None
+
+
+def door(kind, code, claimed, reason, ip):
+    with DOOR_LOCK:
+        DOOR.append({"ts": clock(), "kind": kind, "code": code, "claimed": _claimed(claimed),
+                     "reason": str(reason)[:160], "ip": str(ip)[:45]})
+        DOOR_STATS["total"] += 1
+
+
+def door_view():
+    with DOOR_LOCK:
+        return {"total": DOOR_STATS["total"], "recent": list(DOOR)[-80:]}
+
+
 def session_principal(token):
     """The person a live session belongs to, or None. Expired sessions are dropped."""
     now = clock()
@@ -226,6 +254,7 @@ def snapshot():
     viol = invariants.audit(g.receipts, g.state, SESSION["turns"], g.approvers)
     return {"state": g.state,
             "by_principal": by_principal(g),
+            "door": door_view(),
             "agents": agents_view(g),
             "names": {p: d.get("name", p) for p, d in g.b.principals.items()},
             "boundary_hash": g.boundary_hash(),
@@ -295,6 +324,8 @@ class H(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
             return self._send({"error": "body is not JSON"}, 400)
+        if not isinstance(body, dict):
+            return self._send({"error": "body must be a JSON object"}, 400)
         if self.path == "/nominate":
             return self._nominate(body)
         if self.path == "/login":
@@ -306,6 +337,7 @@ class H(BaseHTTPRequestHandler):
         # Everything below resets the world or runs the model inside this process.
         # None of it is reachable from another host.
         if self.path in ("/reset", "/turn") and not self._local():
+            door("local_only", "local_only", None, f"{self.path} is local to the Warden host", self.client_address[0])
             return self._send({"error": "this endpoint is local to the Warden host"}, 403)
         if self.path == "/reset":
             reset()
@@ -352,6 +384,7 @@ class H(BaseHTTPRequestHandler):
                 SESSION["turns"] += 1
             self._send({"receipt": receipt})
         except agentauth.AuthError as e:
+            door("agent", AGENT_CODES.get(str(e), "malformed"), body.get("principal"), e, self.client_address[0])
             self._send({"error": f"authentication failed: {e}"}, 401)
 
     # ---- human login -------------------------------------------------------
@@ -388,39 +421,46 @@ class H(BaseHTTPRequestHandler):
                             "name": g.b.principals[who].get("name", who),
                             "enrolled": who in g.approvers, "expires": clock() + SESSION_TTL})
         except oidc.OIDCError as e:
+            door("login", "login_failed", None, e, self.client_address[0])
             self._send({"error": f"login failed: {e}"}, 401)
 
     def _enroll(self, body):
         """Enroll the logged-in person's device key. Their identity comes from the login
         session, never from the request, and a person who already has a key cannot swap
         it. The private key never reaches this process."""
+        who = None
         try:
             with LOCK:
                 who = session_principal(body.get("session"))
                 if who is None:
+                    door("enroll", "no_session", None, "enrolment without a login session", self.client_address[0])
                     return self._send({"error": "sign in first"}, 401)
                 pub = base64.b64decode(body["public_key"], validate=True)
                 SESSION["gate"].enroll(who, pub)
                 APPROVERS[who] = pub
                 return self._send(approval_state())
         except (KeyError, ValueError, kernel.AuthzError) as e:
+            door("enroll", "enroll_refused", who, e, self.client_address[0])
             self._send({"error": str(e)}, 400)
 
     def _approve(self, body):
         """Approving needs BOTH a live login session (who) and a signature from that
         person's enrolled device key over the exact action (which device, which action).
         The approver is whoever the session belongs to; the request cannot name one."""
+        who = None
         try:
             sig = base64.b64decode(body["signature"], validate=True)
             with LOCK:
                 who = session_principal(body.get("session"))
                 if who is None:
+                    door("approve", "no_session", None, "approval without a login session", self.client_address[0])
                     return self._send({"error": "sign in first"}, 401)
                 g = SESSION["gate"]
                 receipt = g.approve(str(body["nonce"]), who, sig)
                 SESSION["turns"] += 1          # the release is a receipted attempt
                 self._send({"receipt": receipt, **approval_state()})
         except (KeyError, ValueError, kernel.AuthzError) as e:
+            door("approve", "approval_refused", who, e, self.client_address[0])
             self._send({"error": str(e)}, 400)
 
 
