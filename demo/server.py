@@ -127,10 +127,28 @@ def prevented(g):
             "out_of_scope_writes": out_of_scope_writes(g)}
 
 
+def by_principal(g):
+    """Per-actor tallies over the whole receipted history, derived, not tracked."""
+    out = {p: {"kind": d["kind"], "groups": sorted(g.b.effective_groups[p]),
+               "ACCEPT": 0, "DENY": 0, "HOLD": 0, "last_ts": None,
+               "key": (AUTH.fingerprints().get(p) if AUTH else None)}
+           for p, d in g.b.principals.items() if d["kind"] == "agent"}
+    for r in g.receipts:
+        p = out.get(r["principal"])
+        if p is not None:
+            p[r["decision"]] += 1
+            p["last_ts"] = r["ts"]
+    return out
+
+
 def snapshot():
     g = SESSION["gate"]
     viol = invariants.audit(g.receipts, g.state, SESSION["turns"], g.approvers)
     return {"state": g.state,
+            "by_principal": by_principal(g),
+            "boundary_hash": g.boundary_hash(),
+            "total_receipts": len(g.receipts),
+            "now": g.clock(),
             "turns": SESSION["turns"],
             "admitted": sum(1 for r in g.receipts if r["decision"] == "ACCEPT"),
             "denied": sum(1 for r in g.receipts if r["decision"] == "DENY"),
@@ -173,6 +191,8 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(b)
         elif self.path == "/approve":
             _page(self, "approve.html")
+        elif self.path == "/dashboard":
+            _page(self, "dashboard.html")
         elif self.path == "/approval/state":
             with LOCK:
                 self._send(approval_state())
