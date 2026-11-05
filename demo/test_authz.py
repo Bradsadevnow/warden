@@ -133,11 +133,13 @@ def test_an_agent_cannot_approve_its_own_action():
     held = g.adjudicate(nom(4000))
     expect_authz_error(lambda: g.approve(challenge(held), ACTOR, me.sign(g.canonical(challenge(held)))))
 
-def test_a_human_cannot_approve_their_own_action():
-    g, s, _ = setup(principal="sam")                       # sam is acting, and is a support member
+def test_a_human_acting_through_the_gate_is_refused_outright():
+    # sam is a support member, but people do not act through the gate, and a hold
+    # for an actor with no owner has nobody who could approve it. Fail closed.
+    g, s, _ = setup(principal="sam")
     held = g.adjudicate(nom(4000))
-    assert held["decision"] == "HOLD"
-    expect_authz_error(lambda: s.approve(g, held))
+    assert held["decision"] == "DENY" and "nobody can approve" in held["decision_basis"][-1][2]
+    assert not g.pending
 
 def test_approver_must_be_named_by_the_hold():
     spec = copy.deepcopy(SPEC)

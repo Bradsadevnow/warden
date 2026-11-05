@@ -62,6 +62,42 @@ def test_an_owner_must_be_a_human():
 def test_only_agents_have_owners():
     must_not_compile(edit(lambda s: s["principals"]["sam"].update(owner="sam")))
 
+def test_each_agent_is_approved_by_its_own_owner():
+    def two_owners(s):
+        s["principals"]["pat"] = {"kind": "human", "groups": ["supervisors"]}
+        s["principals"]["ops_bot"]["owner"] = "pat"
+    sam, pat = Signer("sam"), Signer("pat")
+    spec = edit(two_owners)
+    keys = {"sam": sam.public_raw, "pat": pat.public_raw}
+    a = gate(spec, "support_bot", keys); ha = a.adjudicate(refund(4000))
+    b = gate(spec, "ops_bot", keys);     hb = b.adjudicate(refund(4000))
+    assert next(iter(a.pending.values()))["approvers"] == ["sam"]
+    assert next(iter(b.pending.values()))["approvers"] == ["pat"]
+    for g, held, wrong in ((a, ha, pat), (b, hb, sam)):    # the OTHER supervisor is refused
+        try: wrong.approve(g, held)
+        except kernel.AuthzError: pass
+        else: raise AssertionError("someone other than the agent's owner approved")
+    assert sam.approve(a, ha)["decision"] == "ACCEPT" and pat.approve(b, hb)["decision"] == "ACCEPT"
+    with audited_under(spec):
+        assert invariants.audit(a.receipts, a.state, 2, a.approvers) == []
+
+def test_an_agent_without_an_owner_cannot_sit_under_an_owner_hold():
+    must_not_compile(edit(lambda s: s["principals"]["support_bot"].pop("owner")))
+
+def test_the_audit_flags_an_approval_by_someone_other_than_the_owner():
+    def two_owners(s):
+        s["principals"]["pat"] = {"kind": "human", "groups": ["supervisors"]}
+    spec = edit(two_owners)
+    sam = Signer("sam")
+    g = gate(spec, approvers={"sam": sam.public_raw})
+    sam.approve(g, g.adjudicate(refund(4000)))
+    swapped = copy.deepcopy(spec); swapped["principals"]["support_bot"]["owner"] = "pat"
+    with audited_under(swapped):                          # the declaration now says pat owns it
+        assert any("not an approver" in v for v in invariants.audit(g.receipts, g.state, 2, g.approvers))
+
+def test_owner_is_a_reserved_word():
+    must_not_compile(edit(lambda s: s["groups"].update(owner={})))
+
 def test_an_owner_may_approve_their_own_agents_held_action():
     # sam owns support_bot AND is the approver. Nothing forbids it: the rule that
     # exists is that the ACTING principal can never approve, and sam is not acting.
@@ -126,12 +162,12 @@ def test_holds_are_conjunctive_and_approvers_intersect():
         s["principals"]["lee"] = {"kind": "human", "groups": ["supervisors"]}
         s["policy"].append({"id": "second-look", "effect": "hold", "to": ["group:support"],
                             "verbs": ["issue_refund"], "when": {"arg": "amount_cents", "op": ">", "value": 3000},
-                            "approvers": ["pat", "lee"]})
+                            "approvers": ["sam", "pat", "lee"]})
     g = gate(edit(two))
     r = g.adjudicate(refund(4000))
     p = next(iter(g.pending.values()))
     assert sorted(p["holds"]) == ["large-refund-needs-a-supervisor", "second-look"]
-    assert p["approvers"] == ["lee", "pat"]                # supervisors AND {pat, lee}; sam is not in both
+    assert p["approvers"] == ["sam"]                       # the owner AND {sam, pat, lee}: only sam is in both
     small = gate(edit(two)); small.adjudicate(refund(2800))
     assert next(iter(small.pending.values()))["holds"] == ["large-refund-needs-a-supervisor"]
 
@@ -140,15 +176,15 @@ def test_signer_must_satisfy_every_applicable_hold():
         s["principals"]["pat"] = {"kind": "human", "groups": ["supervisors"]}
         s["policy"].append({"id": "second-look", "effect": "hold", "to": ["group:support"],
                             "verbs": ["issue_refund"], "when": {"arg": "amount_cents", "op": ">", "value": 3000},
-                            "approvers": ["pat"]})
+                            "approvers": ["sam", "pat"]})
     sam, pat = Signer("sam"), Signer("pat")
     spec = edit(two)
     g = gate(spec, approvers={"sam": sam.public_raw, "pat": pat.public_raw})
     held = g.adjudicate(refund(4000))
-    try: sam.approve(g, held)
+    try: pat.approve(g, held)
     except kernel.AuthzError: pass
-    else: raise AssertionError("sam alone satisfied a hold that names only pat")
-    assert pat.approve(g, held)["decision"] == "ACCEPT"
+    else: raise AssertionError("pat satisfied the second hold but is not the agent's owner")
+    assert sam.approve(g, held)["decision"] == "ACCEPT"
     with audited_under(spec):
         assert invariants.audit(g.receipts, g.state, 2, g.approvers) == []
 

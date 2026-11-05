@@ -178,6 +178,14 @@ def _named(principal, entries):
     return any((e[6:] in eff) if e.startswith("group:") else e == principal for e in entries)
 
 
+def _approver_named(approver, actor, entries):
+    """May `approver` approve `actor`'s action under a hold naming `entries`?
+    The word `owner` means the actor's declared owner."""
+    owner = SPEC.get("principals", {}).get(actor, {}).get("owner")
+    return any((owner is not None and approver == owner) if e == "owner"
+               else _named(approver, [e]) for e in entries)
+
+
 def _policy(principal, verb, what, args):
     """Re-derived from boundary.yaml with no gate code. ("DENY", why) or
     ("ALLOW", [hold rules]). Deny wins; no allow is a deny."""
@@ -249,7 +257,7 @@ def _authz_violations(receipts, approvers):
         if SPEC.get("principals", {}).get(who2, {}).get("kind") != "human":
             out.append(f"{r['id']}: approver {who2!r} is not a human principal")
         for h in holds:
-            if not _named(who2, h["approvers"]):
+            if not _approver_named(who2, who, h["approvers"]):
                 out.append(f"{r['id']}: {who2!r} is not an approver under hold {h['id']}")
         pub = (approvers or {}).get(who2)
         if pub is None:

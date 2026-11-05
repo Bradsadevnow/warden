@@ -128,6 +128,8 @@ class Boundary:
                     raise BoundaryError(f"principal {p!r}: unknown group {g!r}")
                 eff |= closure[g]
             self.effective_groups[p] = eff
+        if "owner" in self.principals or "owner" in groups:
+            raise BoundaryError("`owner` is reserved: it names an agent's owner in a hold rule")
         for p, d in self.principals.items():
             o = d.get("owner")
             if o is not None and (d["kind"] != "agent" or
@@ -168,16 +170,28 @@ class Boundary:
                 for v in r["verbs"]:
                     if self.verbs[v]["args"].get(w.get("arg"), {}).get("type") != "int":
                         raise BoundaryError(f"{where}: `when` arg {w.get('arg')!r} is not an int arg of {v}")
-            approvers = set()
+            to = members(r["to"], where)
+            # approvers, resolved PER ACTING AGENT. The word `owner` means "whoever
+            # that agent's owner is", so one rule can cover many agents and each is
+            # approved by its own responsible person.
+            approvers = {}
             if r["effect"] == "hold":
-                approvers = {p for p in members(r.get("approvers", []), where)
-                             if self.principals[p]["kind"] == "human"}
-                if not approvers:
-                    raise BoundaryError(f"{where}: a hold needs at least one human approver")
+                entries = list(r.get("approvers", []))
+                fixed = {p for p in members([e for e in entries if e != "owner"], where)
+                         if self.principals[p]["kind"] == "human"}
+                for p in sorted(to):
+                    if self.principals[p]["kind"] != "agent":
+                        continue            # people never act through the gate
+                    mine = set(fixed)
+                    if "owner" in entries and self.principals[p].get("owner"):
+                        mine.add(self.principals[p]["owner"])
+                    if not mine:
+                        raise BoundaryError(f"{where}: agent {p!r} would have no human to approve it")
+                    approvers[p] = mine
             elif "approvers" in r:
                 raise BoundaryError(f"{where}: only a hold names approvers")
             self.rules.append({
-                "id": rid, "effect": r["effect"], "to": members(r["to"], where),
+                "id": rid, "effect": r["effect"], "to": to,
                 "verbs": set(r["verbs"]), "when": w, "approvers": approvers,
                 "ttl": int(r.get("ttl", AUTHZ_TTL)),
                 "what": [re.compile(s.replace("*", "[^/]+") + "$") for s in r["what"]] if "what" in r else None})
@@ -203,6 +217,8 @@ class Boundary:
             if r["effect"] == "allow":
                 allowed = True
             else:
+                if not r["approvers"].get(principal):
+                    return DENY, f"rule {r['id']} holds {verb} but nobody can approve it for {principal}"
                 holds.append(r)
         if not allowed:
             return DENY, f"no policy rule allows {principal} to {verb}"
@@ -294,7 +310,8 @@ class Boundary:
                 "principals": {p: {"kind": d["kind"], "groups": sorted(self.effective_groups[p])}
                                for p, d in self.principals.items()},
                 "policy": [{"id": r["id"], "effect": r["effect"], "verbs": sorted(r["verbs"]),
-                            "to": sorted(r["to"]), "approvers": sorted(r["approvers"])}
+                            "to": sorted(r["to"]),
+                            "approvers": {p: sorted(s) for p, s in sorted(r["approvers"].items())}}
                            for r in self.rules]}
 
     def digest(self):
@@ -352,7 +369,8 @@ class Gate:
         nonce = secrets.token_urlsafe(12)
         self.pending[nonce] = {"principal": self.principal, "what": what, "verb": verb,
                                "args": args, "key": key, "holds": [r["id"] for r in holds],
-                               "approvers": sorted(set.intersection(*(r["approvers"] for r in holds))),
+                               "approvers": sorted(set.intersection(
+                                   *(r["approvers"][self.principal] for r in holds))),
                                "expires": int(now) + min(r["ttl"] for r in holds),
                                "bh": self.boundary_hash(), "output": output}
         return nonce

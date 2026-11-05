@@ -38,13 +38,35 @@ schema -> what (scope) -> verb auth -> args -> bind -> policy -> precondition ->
 - tests: `test_hardening.py`, `test_authz.py`, `test_policy.py` (all pass). Also `check.py`, `gap.py`, `adversarial.py`
 - Run from `demo/`. Deps: `pip install -r requirements.txt` (pyyaml, cryptography).
 
-## Roadmap
+## What Warden is, as a product
 
-- B: signed capability grants (narrowing-only delegation, budgets, revocation)
-- C: Warden as a network service; agent authentication on nominations (DONE for the service and signed nominations: `agentauth.py`, `client.py`, `remote_agent.py`, `test_network.py`; agent keys are provisioned in `agents.json` on the Warden host, never enrolled over the network; `/reset`, `/enroll`, `/turn` are loopback-only). Still open: a separate protected resource that only honors Warden-signed calls (that is D)
-- D: Warden-signed hash-chained receipts (attestation as receipt 0); a resource that only honors Warden-signed calls
-- E: approver adapters (Ed25519 device, ES256), Pixel 10 Pro native app with Keystore and key attestation
-- F: cross-machine adversarial tests (cloned agent, replay, escalation) and the evidence demo
+A CRM-style system for governing agents. The main object is the **agent**: it has a job, a domain, an **owner** (the person responsible for it), and a plain-language list of what it may do. Held actions go to the owner, who approves with a key on their own device after logging in through an identity service. One console covers every domain. Every message on screen must make sense to a non-technical person (Karen from HR, Darrel from accounting).
+
+Decisions made with the owner of this project: one approver per hold (the agent's owner; no two-person rule); an owner may approve their own agent's held action; tools stay inside the Warden service (agents run on other machines and cannot reach them); domains, not roles, decide how agents are divided.
+
+## Plan
+
+DONE
+- Gate, policy, HOLD, human signatures (Ed25519), independent audit and replay
+- Warden as a network service; signed agent nominations; replay/stale/impersonation refused (`agentauth.py`, `client.py`, `test_network.py`)
+- Dashboard rebuilt around agents: agent list, agent page with generated plain-language permissions, "waiting for you" inbox, activity
+
+NEXT, in order
+1. **Owner is the approver.** A hold rule can name "the agent's owner"; the compiler resolves it per agent.
+2. **Approver identity, no trust-on-first-use.** Login through an OIDC/OAuth provider (token signature, issuer, audience, expiry, verified email, mapped to the owner; reject `none`/HS256). Enrollment of the device key happens only after a successful login. Approval = login (who) + device key (which device) + signature over the exact action. Tested against a stand-in identity provider; a real provider (Google, GitHub or Microsoft) is plugged in later.
+3. **Door log.** Requests refused before the gate (unsigned, forged, replayed, unknown agent) are recorded and shown on the dashboard.
+4. **Domains.** Each domain is a rulebook + tool module + seed data hosted by the one service, with its own agent and owner. Order: Accounting, IT, then Clinic.
+5. **Record-level rule** ("only its own assigned patients"), then Clinic.
+6. **Dashboard**: domain filter; approvals merged into the console.
+7. **Attack tests**, run from this PC against the laptop: out-of-privilege requests, prompt injection naming another agent, replayed requests, borrowed keys, splitting a large refund into small ones, racing requests, self-approval, enrollment hijack, stolen or wrong-person login tokens, tokens for another app.
+8. **Windows laptop** (SSH to it is still not working) as a second agent host for clone/impersonation tests.
+
+LATER
+- Turn-an-agent-off (revoke its key) button
+- Signed, hash-chained receipts
+- Signed capability grants that can only narrow
+- Pixel 10 Pro native approval app with key attestation
+- A separate protected resource that only honors Warden-signed calls, if Warden should protect external systems
 
 ## Lab (flat 10.77.77.0/24 behind a Linksys E2500)
 

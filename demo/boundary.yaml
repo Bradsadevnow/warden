@@ -58,7 +58,7 @@ policy:
     to: [group:support]
     verbs: [issue_refund]
     when: {arg: amount_cents, op: ">", value: 2500}     # over $25.00
-    approvers: [group:supervisors]
+    approvers: [owner]        # whoever owns the agent that asked
     ttl: 120
 
 # AGGREGATE CONSTRAINTS. These are facts about resulting state, not about any

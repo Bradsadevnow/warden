@@ -171,7 +171,7 @@ def permissions(b, principal):
         holds = [r for r in rules if r["effect"] == "hold"]
         level, note = "yes", ""
         for r in holds:
-            who = " or ".join(sorted(nm(p) for p in r["approvers"]))
+            who = " or ".join(sorted(nm(p) for p in r["approvers"].get(principal, ())))
             w = r["when"]
             if w is None:
                 level, note = "ask", f"{who} must approve each time."
