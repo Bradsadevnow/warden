@@ -42,7 +42,9 @@ def _precondition_ok(receipts, idx, verb, args):
     if not req:
         return True
     need_v, need_a = req["verb"], req["matching_arg"]
-    prior = [r for r in receipts[:idx] if _landed(r)]
+    # history is per principal: another agent's refund never unlocks this one
+    who = receipts[idx].get("principal")
+    prior = [r for r in receipts[:idx] if _landed(r) and r.get("principal") == who]
     if req.get("immediately"):
         last = prior[-1]["claim"] if prior else None
         return bool(last and last["verb"] == need_v

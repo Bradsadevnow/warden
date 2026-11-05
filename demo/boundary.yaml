@@ -24,6 +24,7 @@ groups:
 
 principals:
   support_bot: {kind: agent, groups: [support]}     # the chatbot's runtime identity
+  ops_bot:     {kind: agent, groups: [support]}     # a second runtime, e.g. on another machine
   sam:         {kind: human, groups: [supervisors]} # a person who holds a signing key
 
 # POLICY. Deny beats everything. No matching allow is a deny. Hold rules are

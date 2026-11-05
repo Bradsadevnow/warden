@@ -380,7 +380,7 @@ class Gate:
                                  "expires": p["expires"],
                                  "sig": base64.b64encode(signature).decode(), "canonical": msg}
         del self.pending[nonce]
-        return self.adjudicate(p["output"])
+        return self.adjudicate(p["output"], principal=p["principal"])
 
     def _valid_grant(self, what, verb, args):
         """A grant is spent only if it verifies NOW against this exact nomination."""
@@ -401,7 +401,18 @@ class Gate:
         return self.tools[verb](self.state, what, args)
 
     # ---- the ordered pipeline ---------------------------------------------
-    def adjudicate(self, model_output):
+    def adjudicate(self, model_output, principal=None):
+        """`principal` is set by whoever AUTHENTICATED the caller (the service),
+        for this one call. Callers must serialize calls; the gate is not reentrant."""
+        if principal is None:
+            return self._adjudicate(model_output)
+        saved, self.principal = self.principal, principal
+        try:
+            return self._adjudicate(model_output)
+        finally:
+            self.principal = saved
+
+    def _adjudicate(self, model_output):
         checks = []
         def deny(stage, why):
             checks.append([stage, "DENY", why])
@@ -464,7 +475,9 @@ class Gate:
         if req:
             need_v, need_a = req["verb"], req["matching_arg"]
             mine = args_or_why.get(need_a)
-            admitted = [r for r in self.receipts if landed(r)]
+            # history is per principal: another agent's refund never unlocks this one
+            admitted = [r for r in self.receipts
+                        if landed(r) and r["principal"] == self.principal]
             if req.get("immediately"):
                 last = admitted[-1]["claim"] if admitted else None
                 ok = bool(last and last["verb"] == need_v

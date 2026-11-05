@@ -6,3 +6,6 @@ __pycache__/
 demo/evidence_*.json
 demo/receipts_*.json
 demo/sample_*.json
+
+demo/keys/
+demo/agents.json

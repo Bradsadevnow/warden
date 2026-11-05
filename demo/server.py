@@ -4,13 +4,26 @@ Every /turn is a real call to LM Studio and a real adjudication by the same
 kernel.py the tests use. The page cannot show you a receipt that did not just
 happen.
 """
-import base64, collections, hashlib, json, os, re, threading
+import base64, collections, hashlib, ipaddress, json, os, re, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import agent, invariants, kernel, lm, tools
+import agent, agentauth, invariants, kernel, lm, tools
 
 LOCK = threading.Lock()
 APPROVERS = {}      # id -> raw public key. Survives /reset; only PUBLIC keys live here.
 SESSION = {"gate": agent.new_gate(APPROVERS), "turns": 0}
+# Agent public keys, provisioned out of band on this host (WARDEN_AGENTS=path to json).
+# None means /nominate is off. There is no network enrollment for agents.
+AUTH = None
+
+
+def configure(agents_path=None, approvers_path=None, window=120):
+    global AUTH
+    if approvers_path and os.path.exists(approvers_path):
+        for p, k in agentauth.load_keys(approvers_path).items():
+            SESSION["gate"].enroll(p, k)      # refuses agents and unknown names
+            APPROVERS[p] = k
+    if agents_path:
+        AUTH = agentauth.AgentAuth(agentauth.load_keys(agents_path), agent.BOUNDARY, window=window)
 
 
 def reset():
@@ -178,14 +191,20 @@ class H(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
             return self._send({"error": "body is not JSON"}, 400)
+        if self.path == "/nominate":
+            return self._nominate(body)
+        if self.path == "/approve":
+            return self._approve(body)
+        # Everything below changes who can act or what the world looks like, or runs
+        # the model inside this process. None of it is reachable from another host.
+        if self.path in ("/reset", "/enroll", "/turn") and not self._local():
+            return self._send({"error": "this endpoint is local to the Warden host"}, 403)
         if self.path == "/reset":
             reset()
             with LOCK:
                 return self._send(snapshot())
         if self.path == "/enroll":
             return self._enroll(body)
-        if self.path == "/approve":
-            return self._approve(body)
         if self.path != "/turn":
             return self._send({"error": "not found"}, 404)
         text = (body.get("text") or "").strip()
@@ -206,6 +225,28 @@ class H(BaseHTTPRequestHandler):
                         "state_before": before, **snap})
         except Exception as e:
             self._send({"error": f"{type(e).__name__}: {e}"}, 502)
+
+    def _local(self):
+        try:
+            return ipaddress.ip_address(self.client_address[0]).is_loopback
+        except ValueError:
+            return False
+
+    def _nominate(self, body):
+        """An agent's nomination from the network. The principal is whoever's key
+        verifies; nothing in the model output can change it."""
+        if AUTH is None:
+            return self._send({"error": "agent authentication is not configured"}, 503)
+        try:
+            with LOCK:
+                who = AUTH.verify(body.get("principal"), body.get("nonce"), body.get("ts"),
+                                  body.get("output"), body.get("signature"))
+                g = SESSION["gate"]
+                receipt = g.adjudicate(body["output"], principal=who)
+                SESSION["turns"] += 1
+            self._send({"receipt": receipt})
+        except agentauth.AuthError as e:
+            self._send({"error": f"authentication failed: {e}"}, 401)
 
     def _enroll(self, body):
         """First-use enrolment of a human principal's PUBLIC key. The gate refuses
@@ -233,5 +274,11 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print("live demo on http://127.0.0.1:8077   approval screen on http://127.0.0.1:8077/approve")
-    ThreadingHTTPServer(("127.0.0.1", 8077), H).serve_forever()
+    # WARDEN_HOST=0.0.0.0 to serve other machines. WARDEN_AGENTS=agents.json turns on
+    # /nominate. WARDEN_APPROVERS=approvers.json pre-enrolls human keys.
+    host = os.environ.get("WARDEN_HOST", "127.0.0.1")
+    port = int(os.environ.get("WARDEN_PORT", "8077"))
+    configure(os.environ.get("WARDEN_AGENTS"), os.environ.get("WARDEN_APPROVERS"))
+    print(f"warden on http://{host}:{port}   approval screen on /approve   "
+          f"agents: {sorted(AUTH.fingerprints()) if AUTH else 'none (/nominate off)'}")
+    ThreadingHTTPServer((host, port), H).serve_forever()
