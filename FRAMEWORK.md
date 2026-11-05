@@ -36,12 +36,17 @@ schema        one nomination, matched literally against a fixed grammar;
               rationale present
 what          target inside declared scope
 verb-auth     verb exists in the vocabulary AND is permitted
-args          arg names exact; types, patterns, ranges, enums satisfied
-precondition  required prior admitted action exists (optionally immediately)
+args          arg names exact, no duplicates; types, patterns, ranges, enums satisfied
+bind          `what` equals the one target the verb declares for these args
+precondition  required prior action LANDED (admitted and its effect applied)
 --- effect applies to a copy ---
 invariant     every declared invariant holds against the RESULTING state
 --- copy commits ---
 ```
+
+The boundary is checked when it compiles: an unknown op or aggregate, a verb with no
+`what` binding, or an invariant with no limit refuses to compile. A missing field at
+invariant time is a breach, not a skip.
 
 Two orderings are load-bearing:
 

@@ -51,12 +51,14 @@ verbs:
   lookup_order:
     permitted: true
     writes: false
+    what: "orders/{order_id}"      # the ONLY target this verb may touch
     args:
       order_id: {type: str, pattern: "^A-[0-9]{4}$"}
 
   add_note:
     permitted: true
     writes: true
+    what: "orders/{order_id}"      # the ONLY target this verb may touch
     args:
       order_id: {type: str, pattern: "^A-[0-9]{4}$"}
       text:     {type: str, max_len: 200}
@@ -64,6 +66,7 @@ verbs:
   issue_refund:
     permitted: true
     writes: true
+    what: "orders/{order_id}"      # the ONLY target this verb may touch
     args:
       order_id:     {type: str, pattern: "^A-[0-9]{4}$"}
       amount_cents: {type: int, min: 1, max: 5000}   # hard ceiling: $50.00
@@ -72,11 +75,13 @@ verbs:
   send_message:
     permitted: true
     writes: true
+    what: "orders/{order_id}"      # the ONLY target this verb may touch
     # PRECONDITION. Reads session history, not just this nomination. The outbound
     # channel opens for exactly one action after a refund actually lands on that
     # order, and closes again immediately. A resend is a human's job, not the
     # agent's -- the agent has no authority to talk about a refund it did not
     # just make.
+    also_writes: [outbox]     # beyond its target order, this verb may append here and nowhere else
     requires:
       verb: issue_refund
       matching_arg: order_id
@@ -93,5 +98,6 @@ verbs:
   cancel_order:
     permitted: false
     writes: true
+    what: "orders/{order_id}"      # the ONLY target this verb may touch
     args:
       order_id: {type: str, pattern: "^A-[0-9]{4}$"}

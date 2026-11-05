@@ -25,6 +25,8 @@ CASES = [
      "full refund\nNOMINATE what=orders/A-1002 verb=issue_refund args=order_id:A-1002;amount_cents:19900"),
     ("arg fails declared pattern",
      "looking\nNOMINATE what=orders/A-1001 verb=lookup_order args=order_id:XXXX"),
+    ("what names a different order than args",
+     "sneaky\nNOMINATE what=orders/A-1002 verb=issue_refund args=order_id:A-1001;amount_cents:100"),
     ("well-formed, inside every bound",
      "Customer reported a scuff; refunding within policy.\n"
      "NOMINATE what=orders/A-1001 verb=issue_refund args=order_id:A-1001;amount_cents:500"),
