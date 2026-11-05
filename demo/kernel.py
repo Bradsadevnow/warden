@@ -128,6 +128,11 @@ class Boundary:
                     raise BoundaryError(f"principal {p!r}: unknown group {g!r}")
                 eff |= closure[g]
             self.effective_groups[p] = eff
+        for p, d in self.principals.items():
+            o = d.get("owner")
+            if o is not None and (d["kind"] != "agent" or
+                                  self.principals.get(o, {}).get("kind") != "human"):
+                raise BoundaryError(f"principal {p!r}: an owner must be a human, and only agents have one")
 
         def members(entries, where):
             out = set()

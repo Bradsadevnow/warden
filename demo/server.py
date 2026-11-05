@@ -141,11 +141,69 @@ def by_principal(g):
     return out
 
 
+def _fmt(arg, v):
+    return "$%.2f" % (v / 100) if arg.endswith("_cents") else str(v)
+
+
+def permissions(b, principal):
+    """What this agent may do, in plain words, derived from the compiled policy and
+    the declared verbs. Nothing here is written by hand, so it cannot drift from what
+    the gate enforces."""
+    nm = lambda p: b.principals[p].get("name", p)
+    out = []
+    for verb, spec in b.verbs.items():
+        label = spec.get("label") or verb.replace("_", " ").capitalize()
+        row = lambda level, note: out.append({"action": label, "level": level, "note": note})
+        if not spec["permitted"]:
+            row("no", "Nobody is allowed to do this."); continue
+        rules = [r for r in b.rules if principal in r["to"] and verb in r["verbs"]]
+        if any(r["effect"] == "deny" and r["when"] is None and r["what"] is None for r in rules):
+            row("no", "Turned off for this agent."); continue
+        if not any(r["effect"] == "allow" for r in rules):
+            row("no", "Not part of this agent's job."); continue
+        extra = []
+        for k, rule in spec["args"].items():
+            if rule.get("type") == "int" and "max" in rule:
+                extra.append(f"Never more than {_fmt(k, rule['max'])} at a time.")
+        req = spec.get("requires")
+        if req and req.get("immediately"):
+            extra.append("Only straight after: " + (b.verbs[req["verb"]].get("label") or req["verb"]) + ".")
+        holds = [r for r in rules if r["effect"] == "hold"]
+        level, note = "yes", ""
+        for r in holds:
+            who = " or ".join(sorted(nm(p) for p in r["approvers"]))
+            w = r["when"]
+            if w is None:
+                level, note = "ask", f"{who} must approve each time."
+            elif w["op"] == ">":
+                note = f"Up to {_fmt(w['arg'], w['value'])} on its own. Above that, {who} must approve."
+            else:
+                level, note = "ask", f"Some cases need {who} to approve."
+        out.append({"action": label, "level": level, "note": " ".join([note] + extra).strip()})
+    return out
+
+
+def agents_view(g):
+    b, out = g.b, []
+    for p, d in b.principals.items():
+        if d["kind"] != "agent":
+            continue
+        o = d.get("owner")
+        out.append({"id": p, "name": d.get("name", p), "job": d.get("job", ""),
+                    "domain": b.spec.get("domain", ""), "owner": o,
+                    "owner_name": b.principals[o].get("name", o) if o else None,
+                    "authenticated": bool(AUTH and p in AUTH.keys),
+                    "permissions": permissions(b, p)})
+    return out
+
+
 def snapshot():
     g = SESSION["gate"]
     viol = invariants.audit(g.receipts, g.state, SESSION["turns"], g.approvers)
     return {"state": g.state,
             "by_principal": by_principal(g),
+            "agents": agents_view(g),
+            "names": {p: d.get("name", p) for p, d in g.b.principals.items()},
             "boundary_hash": g.boundary_hash(),
             "total_receipts": len(g.receipts),
             "now": g.clock(),

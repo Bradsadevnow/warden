@@ -55,6 +55,23 @@ def test_the_model_cannot_name_the_principal():
     assert r["decision"] == "DENY" and stage(r) == "args"
     assert all(x["principal"] == "support_bot" for x in g.receipts)
 
+def test_an_owner_must_be_a_human():
+    must_not_compile(edit(lambda s: s["principals"]["support_bot"].update(owner="ops_bot")))
+    must_not_compile(edit(lambda s: s["principals"]["support_bot"].update(owner="nobody")))
+
+def test_only_agents_have_owners():
+    must_not_compile(edit(lambda s: s["principals"]["sam"].update(owner="sam")))
+
+def test_an_owner_may_approve_their_own_agents_held_action():
+    # sam owns support_bot AND is the approver. Nothing forbids it: the rule that
+    # exists is that the ACTING principal can never approve, and sam is not acting.
+    sam = Signer("sam")
+    g = gate(approvers={"sam": sam.public_raw})
+    assert SPEC["principals"]["support_bot"]["owner"] == "sam"
+    held = g.adjudicate(refund(4000))
+    assert held["decision"] == "HOLD"
+    assert sam.approve(g, held)["decision"] == "ACCEPT"
+
 # ---- precedence and inheritance -----------------------------------------------
 def test_deny_beats_allow():
     spec = edit(lambda s: s["policy"].append(

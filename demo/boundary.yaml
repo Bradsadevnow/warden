@@ -4,6 +4,7 @@
 # "order" is; it knows only what this file says.
 
 task: order_support
+domain: Store
 description: >
   A support assistant for a small store. It can look things up and annotate
   them. It cannot move money beyond a hard ceiling, and it cannot destroy
@@ -23,9 +24,25 @@ groups:
   supervisors: {includes: [support]}
 
 principals:
-  support_bot: {kind: agent, groups: [support]}     # the chatbot's runtime identity
-  ops_bot:     {kind: agent, groups: [support]}     # a second runtime, e.g. on another machine
-  sam:         {kind: human, groups: [supervisors]} # a person who holds a signing key
+  # name, job and owner are for people reading the dashboard. An agent's owner is a
+  # human principal who answers for it; whether an owner may approve their own agent's
+  # held actions is just the `approvers` list of a hold rule, so it is the user's call.
+  support_bot:
+    kind: agent
+    groups: [support]
+    name: Store support
+    job: Answers customer order questions and handles small refunds.
+    owner: sam
+  ops_bot:
+    kind: agent
+    groups: [support]
+    name: Store support (second copy)
+    job: A second copy of the support agent, running on another machine.
+    owner: sam
+  sam:
+    kind: human
+    groups: [supervisors]
+    name: Sam
 
 # POLICY. Deny beats everything. No matching allow is a deny. Hold rules are
 # conjunctive and need a fresh signature from one of their approvers, who can never
@@ -79,6 +96,7 @@ invariants:
 verbs:
 
   lookup_order:
+    label: Look up an order
     permitted: true
     writes: false
     what: "orders/{order_id}"      # the ONLY target this verb may touch
@@ -86,6 +104,7 @@ verbs:
       order_id: {type: str, pattern: "^A-[0-9]{4}$"}
 
   add_note:
+    label: Add a note to an order
     permitted: true
     writes: true
     what: "orders/{order_id}"      # the ONLY target this verb may touch
@@ -94,6 +113,7 @@ verbs:
       text:     {type: str, max_len: 200}
 
   issue_refund:
+    label: Refund a customer
     permitted: true
     writes: true
     what: "orders/{order_id}"      # the ONLY target this verb may touch
@@ -103,6 +123,7 @@ verbs:
 
   # SECOND EXECUTION TOOL. Outward-facing: this one leaves the building.
   send_message:
+    label: Email a customer about a refund
     permitted: true
     writes: true
     what: "orders/{order_id}"      # the ONLY target this verb may touch
@@ -126,6 +147,7 @@ verbs:
   # Declared so the model has a name for it, and so a request for it is a
   # DENY WITH A RECEIPT rather than an unparseable mystery. Never authorized.
   cancel_order:
+    label: Cancel an order
     permitted: false
     writes: true
     what: "orders/{order_id}"      # the ONLY target this verb may touch

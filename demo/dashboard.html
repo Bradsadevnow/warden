@@ -18,12 +18,12 @@
     radial-gradient(900px 500px at 12% -10%, rgba(57,197,255,.10), transparent 60%),
     radial-gradient(700px 500px at 100% 0%, rgba(150,90,255,.08), transparent 60%), var(--bg); }
   .wrap { max-width: 860px; margin: 0 auto; padding: 0 18px 60px; }
-  header { display: flex; align-items: center; gap: 14px; padding: 18px 0 10px; flex-wrap: wrap; }
+  header { display: flex; align-items: center; gap: 12px; padding: 18px 0 10px; flex-wrap: wrap; }
   header h1 { margin: 0; font-size: 13px; letter-spacing: .26em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
   header h1 b { color: var(--cyan); }
   header .sp { flex: 1; }
-  a { color: var(--cyan); text-decoration: none; } a:hover { text-decoration: underline; }
-  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); color: var(--mute); white-space: nowrap; }
+  a { color: var(--cyan); text-decoration: none; cursor: pointer; } a:hover { text-decoration: underline; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12.5px; border: 1px solid var(--line); color: var(--mute); white-space: nowrap; }
   .chip.ok { color: var(--green); border-color: rgba(61,220,132,.45); }
   .chip.warn { color: var(--amber); border-color: rgba(255,176,32,.45); }
   .chip.bad { color: var(--red); border-color: rgba(255,84,104,.5); }
@@ -37,45 +37,53 @@
   nav .dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--amber); color: #1a1200; font-size: 12px; font-weight: 700; text-align: center; }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-  .panel h2 { margin: 0 0 12px; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
-  .status { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .status .big { font-size: 22px; font-weight: 650; }
-  .status .big.ok { color: var(--green); } .status .big.bad { color: var(--red); }
-  .counts { display: flex; gap: 22px; margin-left: auto; }
-  .counts div { text-align: center; } .counts b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
-  .counts span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
-  .mute { color: var(--mute); } .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+  .panel h2 { margin: 0 0 12px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
+  .mute { color: var(--mute); }
   .empty { color: var(--mute); text-align: center; padding: 14px 8px; }
+  .back { display: inline-block; margin-bottom: 12px; font-size: 14px; }
 
-  .hold { border: 1px solid rgba(255,176,32,.4); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: rgba(255,176,32,.05); }
-  .hold:last-child { margin-bottom: 0; } .hold .big { font-size: 16px; font-weight: 650; }
+  /* agent list */
+  .agent { display: block; color: inherit; text-decoration: none; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; background: var(--panel); }
+  .agent:hover { border-color: rgba(57,197,255,.5); text-decoration: none; }
+  .agent .row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .agent .nm { font-size: 17px; font-weight: 650; }
+  .agent .job { color: var(--mute); margin: 2px 0 10px; }
+  .agent .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .agent .sp { flex: 1; }
+
+  /* agent page */
+  .title { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
+  .perm { display: grid; grid-template-columns: 130px 1fr; gap: 6px 14px; padding: 10px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .perm:first-of-type { border-top: 0; }
+  .perm .a { font-weight: 600; }
+  .perm .n { grid-column: 2; color: var(--mute); font-size: 13.5px; }
+  .perm .lv { grid-column: 1; grid-row: 1; justify-self: start; }
+  .perm .a { grid-column: 2; grid-row: 1; }
+  .perm { grid-template-columns: 118px 1fr; }
+
+  .item { border-top: 1px solid var(--line); padding: 12px 0; }
+  .item:first-child { border-top: 0; }
+  .hold { border: 1px solid rgba(255,176,32,.4); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: rgba(255,176,32,.05); }
+  .hold:last-child { margin-bottom: 0; } .hold .big { font-size: 17px; font-weight: 650; }
+  .btn { display: inline-block; margin-top: 10px; padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,176,32,.6); color: var(--text); background: rgba(255,176,32,.12); }
+  .btn:hover { background: rgba(255,176,32,.2); text-decoration: none; }
 
   .feed { list-style: none; margin: 0; padding: 0; }
-  .feed li { border-top: 1px solid var(--line); padding: 10px 2px; }
+  .feed li { border-top: 1px solid var(--line); padding: 11px 2px; }
   .feed li:first-child { border-top: 0; }
   .feed .top { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-  .feed .t { color: var(--mute); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 58px; }
-  .feed .who { font-weight: 600; }
-  .feed .what { overflow-wrap: anywhere; flex: 1; min-width: 160px; }
-  .feed .sub { color: var(--mute); font-size: 13px; margin-top: 2px; padding-left: 68px; }
+  .feed .t { color: var(--mute); font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 58px; }
+  .feed .what { flex: 1; min-width: 180px; overflow-wrap: anywhere; }
+  .feed .what b { font-weight: 650; }
+  .feed .sub { color: var(--mute); font-size: 13.5px; margin-top: 2px; padding-left: 68px; }
   .feed li.fresh { animation: flash 1.6s ease-out; }
   @keyframes flash { from { background: rgba(57,197,255,.16); } to { background: transparent; } }
-  details summary { cursor: pointer; color: var(--mute); font-size: 12px; padding: 4px 0 0 68px; }
+  details summary { cursor: pointer; color: var(--mute); font-size: 12.5px; padding: 4px 0 0 68px; }
   pre { margin: 6px 0 0 68px; padding: 10px; background: rgba(0,0,0,.35); border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: #b8c6e6; }
-  .filters { display: flex; gap: 8px; margin-bottom: 8px; }
-  .filters button { font: inherit; font-size: 13px; color: var(--mute); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+  .filters { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .filters button { font: inherit; font-size: 13.5px; color: var(--mute); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 14px; cursor: pointer; }
   .filters button[aria-pressed="true"] { color: var(--text); border-color: var(--cyan); }
-  .more { display: block; margin: 8px auto 0; font-size: 13px; }
-
-  .agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
-  .agent { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: rgba(0,0,0,.18); }
-  .agent .nm { font-weight: 650; font-size: 16px; }
-  .bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 10px 0 8px; background: rgba(255,255,255,.06); }
-  .bar i { display: block; } .bar .a { background: var(--green); } .bar .d { background: var(--red); } .bar .h { background: var(--amber); }
-
-  .gatewrap { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
-  @media (max-width: 700px) { .gatewrap { grid-template-columns: 1fr; } }
-  #pipe { width: 100%; max-width: 300px; display: block; }
+  @media (max-width: 560px) { .feed .sub, details summary, pre { padding-left: 0; margin-left: 0; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 </style>
 </head>
@@ -85,94 +93,86 @@
   <h1><b>Warden</b></h1>
   <span class="chip live" id="live">connecting</span>
   <span class="sp"></span>
-  <a href="/approve">Approval screen</a>
+  <span class="chip" id="audit">checking records</span>
 </header>
 
-<nav role="tablist" aria-label="Views">
-  <button role="tab" id="tab-now" data-view="now" aria-selected="true">Now<span class="dot" id="holdDot" hidden></span></button>
+<nav role="tablist" aria-label="Sections">
+  <button role="tab" id="tab-agents" data-view="agents" aria-selected="true">Agents</button>
+  <button role="tab" id="tab-inbox" data-view="inbox" aria-selected="false">Waiting for you<span class="dot" id="dot" hidden></span></button>
   <button role="tab" id="tab-activity" data-view="activity" aria-selected="false">Activity</button>
-  <button role="tab" id="tab-agents" data-view="agents" aria-selected="false">Agents</button>
-  <button role="tab" id="tab-gate" data-view="gate" aria-selected="false">The gate</button>
 </nav>
 
-<section id="view-now">
-  <div class="panel status">
-    <div>
-      <div class="big" id="auditBig">...</div>
-      <div class="mute" id="auditSub"></div>
-    </div>
-    <div class="counts">
-      <div><b id="nAcc">0</b><span>allowed</span></div>
-      <div><b id="nHold">0</b><span>held</span></div>
-      <div><b id="nDen">0</b><span>blocked</span></div>
-    </div>
-  </div>
+<section id="view-agents"><div id="agentList"></div></section>
+
+<section id="view-agent" hidden>
+  <a class="back" href="#agents">&larr; All agents</a>
   <div class="panel">
-    <h2>Needs a human</h2>
-    <div id="holds"></div>
-    <div class="empty" id="holdsEmpty">Nothing is waiting for approval.</div>
+    <div class="title" id="aName"></div>
+    <div class="mute" id="aJob"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="aMeta"></div>
   </div>
+  <div class="panel"><h2>What it is allowed to do</h2><div id="aPerms"></div></div>
+  <div class="panel" id="aWaitPanel" hidden><h2>Waiting for a person</h2><div id="aWait"></div></div>
+  <div class="panel"><h2>What it has done</h2><ul class="feed" id="aFeed"></ul><div class="empty" id="aEmpty">Nothing yet.</div></div>
+</section>
+
+<section id="view-inbox" hidden>
   <div class="panel">
-    <h2>Recent</h2>
-    <ul class="feed" id="recent"></ul>
-    <div class="empty" id="recentEmpty">No activity yet.</div>
-    <a class="more" href="#activity" id="seeAll" hidden>See all activity</a>
+    <div id="inbox"></div>
+    <div class="empty" id="inboxEmpty">Nothing is waiting for you.</div>
   </div>
 </section>
 
 <section id="view-activity" hidden>
   <div class="panel">
     <div class="filters" id="filters">
-      <button data-f="ALL" aria-pressed="true">All</button>
+      <button data-f="ALL" aria-pressed="true">Everything</button>
       <button data-f="ACCEPT" aria-pressed="false">Allowed</button>
-      <button data-f="HOLD" aria-pressed="false">Held</button>
-      <button data-f="DENY" aria-pressed="false">Blocked</button>
+      <button data-f="HOLD" aria-pressed="false">Needed approval</button>
+      <button data-f="DENY" aria-pressed="false">Not allowed</button>
     </div>
     <ul class="feed" id="feed"></ul>
     <div class="empty" id="feedEmpty">Nothing to show.</div>
-  </div>
-</section>
-
-<section id="view-agents" hidden>
-  <div class="agents" id="agents"></div>
-</section>
-
-<section id="view-gate" hidden>
-  <div class="panel gatewrap">
-    <canvas id="pipe" width="300" height="560"></canvas>
-    <div>
-      <h2>How a request is checked</h2>
-      <p class="mute">Every request an agent makes falls through these checks, in order. Any check can refuse it. Nothing can skip one. The number beside a check is how many requests it has stopped.</p>
-      <p class="mute mono" id="bh"></p>
-    </div>
   </div>
 </section>
 </div>
 
 <script>
 "use strict";
-// Everything renders with textContent. Rationales are model output; they are data.
+// Everything renders with textContent. Reasons and rationales are agent output; they are data.
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-const GATES = [
-  { label: "Grammar",      sub: "one literal line + a reason",  stages: ["schema", "rationale"] },
-  { label: "Scope",        sub: "inside what may be touched",   stages: ["what"] },
-  { label: "Action",       sub: "a known, permitted action",    stages: ["verb-auth"] },
-  { label: "Arguments",    sub: "types and limits",             stages: ["args"] },
-  { label: "Target",       sub: "matches the arguments",        stages: ["bind"] },
-  { label: "Policy",       sub: "this agent may do this",       stages: ["policy"] },
-  { label: "Order of steps", sub: "required earlier step done", stages: ["precondition"] },
-  { label: "Human",        sub: "a signature, if a rule says so", stages: ["hold", "authz"] },
-  { label: "Effect",       sub: "applied and re-checked",       stages: ["execute", "footprint", "invariant", "decision"] },
-];
-const gateOf = (stage) => GATES.findIndex((g) => g.stages.includes(stage));
-const COL = { ACCEPT: "#3ddc84", DENY: "#ff5468", HOLD: "#ffb020" };
-const WORD = { ACCEPT: "Allowed", DENY: "Blocked", HOLD: "Held" };
-const CHIP = { ACCEPT: "ok", DENY: "bad", HOLD: "warn" };
+const WORD = { ACCEPT: "Allowed", HOLD: "Needs approval", DENY: "Not allowed" };
+const CHIP = { ACCEPT: "ok", HOLD: "warn", DENY: "bad" };
+const LEVEL = { yes: ["Yes", "ok"], ask: ["Ask a person", "warn"], no: ["No", "bad"] };
+// Why a request was stopped, in one plain line, by where it stopped.
+const PLAIN = {
+  schema: "The request wasn't written in a form the system accepts.",
+  rationale: "The agent didn't give a reason.",
+  what: "It tried to reach something it isn't allowed to touch.",
+  "verb-auth": "That kind of action isn't allowed.",
+  args: "A detail in the request was outside the allowed limits.",
+  bind: "The request didn't match what it said it was doing.",
+  policy: "This agent isn't allowed to do that.",
+  precondition: "A step that has to happen first hadn't happened.",
+  hold: "Too many approvals were already waiting.",
+  authz: "The approval didn't check out.",
+  execute: "It would have broken a safety limit, so nothing changed.",
+  footprint: "It would have changed something it shouldn't, so nothing changed.",
+  invariant: "It would have broken a safety limit, so nothing changed.",
+};
 
 const money = (c) => "$" + (Number(c) / 100).toFixed(2);
-const fmtT = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
+const fmtT = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function ago(ts, now) {
+  const s = Math.max(0, Math.round(now - ts));
+  if (s < 60) return "just now"; if (s < 3600) return Math.floor(s / 60) + " min ago";
+  if (s < 86400) return Math.floor(s / 3600) + " hr ago"; return Math.floor(s / 86400) + " days ago";
+}
+let S = null, A = null;   // latest /state and /approval/state
+const nameOf = (id) => (S && S.names[id]) || id || "Someone";
+
 const NOM = /^NOMINATE\s+what=(\S+)\s+verb=(\w+)\s+args=(.*)$/;
 function nominationOf(r) {
   let verb, what, args = {};
@@ -183,171 +183,152 @@ function nominationOf(r) {
   }
   return verb ? { verb, what, args } : null;
 }
-// One plain sentence for the common verbs; anything else falls back to verb + target.
-function sentence(n) {
-  if (!n) return "sent something that was not a request";
+// What was asked, as a short phrase. Known actions read naturally; others fall back to the declared label.
+function phrase(n) {
+  if (!n) return "did something that wasn't a request";
   const a = n.args, id = a.order_id || n.what;
   switch (n.verb) {
-    case "issue_refund": return `refund ${/^\d+$/.test(a.amount_cents || "") ? money(a.amount_cents) : "?"} on ${id}`;
-    case "lookup_order": return `look up ${id}`;
-    case "add_note": return `add a note to ${id}`;
-    case "send_message": return `message the customer about ${id}`;
-    case "cancel_order": return `cancel ${id}`;
-    default: return `${n.verb.replace(/_/g, " ")} on ${n.what}`;
+    case "issue_refund": return `refund ${/^\d+$/.test(String(a.amount_cents || "")) ? money(a.amount_cents) : "an amount"} on order ${id}`;
+    case "lookup_order": return `look up order ${id}`;
+    case "add_note": return `add a note to order ${id}`;
+    case "send_message": return `email the customer about order ${id}`;
+    case "cancel_order": return `cancel order ${id}`;
+    default: return n.verb.replace(/_/g, " ") + " (" + n.what + ")";
   }
 }
 function stopOf(r) { const l = r.decision_basis[r.decision_basis.length - 1]; return { stage: l[0], why: String(l[2]) }; }
-const gateName = (stage) => { const i = gateOf(stage); return i >= 0 ? GATES[i].label : stage; };
+function reason(r) {
+  if (r.decision === "HOLD") return "Waiting for a person to approve.";
+  return PLAIN[stopOf(r).stage] || "It didn't pass a safety check.";
+}
 
-function row(r, fresh, withDetails) {
-  const li = el("li", fresh ? "fresh" : ""), n = nominationOf(r), st = stopOf(r);
-  const top = el("div", "top");
-  top.append(el("span", "t", fmtT(r.ts)), el("span", "who", r.principal || "?"), el("span", "what", sentence(n)),
-             el("span", "chip " + CHIP[r.decision], WORD[r.decision]));
+function row(r, fresh, showAgent) {
+  const li = el("li", fresh ? "fresh" : ""), n = nominationOf(r), top = el("div", "top");
+  const what = el("span", "what");
+  if (showAgent) what.append(el("b", null, nameOf(r.principal)), " wanted to " + phrase(n));
+  else what.append(phrase(n).replace(/^./, (c) => c.toUpperCase()));
+  top.append(el("span", "t", fmtT(r.ts)), what, el("span", "chip " + CHIP[r.decision], WORD[r.decision]));
   li.append(top);
-  if (r.decision !== "ACCEPT") li.append(el("div", "sub", "Stopped at: " + gateName(st.stage)));
-  if (withDetails) {
-    const d = el("details"); d.append(el("summary", null, "Details"));
-    d.append(el("pre", null, "WHY\n" + (r.decision === "ACCEPT" ? "passed every check" : st.why) +
-      "\n\nTHE AGENT'S OWN WORDS (recorded as written)\n" + r.rationale +
-      "\n\nCHECKS\n" + r.decision_basis.map((c) => `${c[1].padEnd(6)} ${c[0].padEnd(13)} ${String(c[2]).slice(0, 200)}`).join("\n") + "\n\nreceipt " + r.id));
-    li.append(d);
-  }
+  if (r.decision !== "ACCEPT") li.append(el("div", "sub", reason(r)));
+  const d = el("details"); d.append(el("summary", null, "Technical detail"));
+  d.append(el("pre", null, "THE AGENT'S OWN WORDS (recorded as written)\n" + r.rationale + "\n\nCHECKS\n" +
+    r.decision_basis.map((c) => `${c[1].padEnd(6)} ${c[0].padEnd(13)} ${String(c[2]).slice(0, 200)}`).join("\n") + "\n\nreceipt " + r.id));
+  li.append(d);
   return li;
 }
 
-// ---- tabs ------------------------------------------------------------------
-const VIEWS = ["now", "activity", "agents", "gate"];
-let view = "now";
-function show(v) {
-  if (!VIEWS.includes(v)) v = "now";
-  view = v;
-  for (const n of VIEWS) { $("#view-" + n).hidden = n !== v; $("#tab-" + n).setAttribute("aria-selected", n === v); }
-  if (location.hash.slice(1) !== v) history.replaceState(null, "", "#" + v);
+function holdCard(p, withAgent) {
+  const c = {}; for (const l of p.canonical.split("\n")) { const i = l.indexOf(":"); if (i > 0) c[l.slice(0, i)] = l.slice(i + 1); }
+  const n = { verb: c.verb, what: c.what, args: {} };
+  try { for (const [k, v] of Object.entries(JSON.parse(c.args || "{}"))) n.args[k] = String(v); } catch (e) {}
+  const h = el("div", "hold"), left = Math.max(0, Math.round(p.expires - A.now));
+  h.append(el("div", "big", `${nameOf(c.principal)} wants to ${phrase(n)}`),
+           el("div", "mute", `${p.approvers.map(nameOf).join(" or ")} needs to approve this. ${left} seconds left.`));
+  const b = el("a", "btn", "Review and approve"); b.href = "/approve"; h.append(b);
+  return h;
 }
-document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
-$("#seeAll").addEventListener("click", (e) => { e.preventDefault(); show("activity"); });
-window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+// ---- views ------------------------------------------------------------------
+function status(a) {
+  const mine = A.pending.filter((p) => p.principal_id === a.id).length;
+  const recent = S.receipts.filter((r) => r.principal === a.id && r.decision === "DENY" && r.ts > S.now - 60).length;
+  if (mine) return ["Waiting for a person", "warn"];
+  if (recent >= 5) return [`Refused ${recent} times in the last minute. Worth a look.`, "warn"];
+  return ["Working normally", "ok"];
+}
+function renderAgents() {
+  const box = $("#agentList"); box.replaceChildren();
+  for (const a of S.agents) {
+    const c = S.by_principal[a.id] || { ACCEPT: 0, DENY: 0, HOLD: 0, last_ts: null };
+    const card = el("a", "agent"); card.href = "#agent/" + a.id;
+    const row1 = el("div", "row"); const [st, cls] = status(a);
+    row1.append(el("span", "nm", a.name), el("span", "chip " + cls, st));
+    card.append(row1, el("div", "job", a.job));
+    const meta = el("div", "meta");
+    meta.append(el("span", "chip", a.domain), el("span", "chip", "Owner: " + (a.owner_name || "nobody")),
+                el("span", "chip " + (a.authenticated ? "ok" : "bad"), a.authenticated ? "Verified" : "Not verified"),
+                el("span", "sp"),
+                el("span", "mute", c.last_ts ? "Last active " + ago(c.last_ts, S.now) : "No activity yet"));
+    card.append(meta); box.append(card);
+  }
+}
+function renderAgent(id) {
+  const a = S.agents.find((x) => x.id === id);
+  if (!a) { location.hash = "#agents"; return; }
+  $("#aName").textContent = a.name; $("#aJob").textContent = a.job;
+  const meta = $("#aMeta"); meta.replaceChildren(el("span", "chip", a.domain), el("span", "chip", "Owner: " + (a.owner_name || "nobody")),
+    el("span", "chip " + (a.authenticated ? "ok" : "bad"), a.authenticated ? "Verified" : "Not verified"));
+  const perms = $("#aPerms"); perms.replaceChildren();
+  for (const p of a.permissions) {
+    const row = el("div", "perm"), [w, cls] = LEVEL[p.level];
+    row.append(el("span", "chip " + cls + " lv", w), el("span", "a", p.action));
+    if (p.note) row.append(el("span", "n", p.note));
+    perms.append(row);
+  }
+  const mine = A.pending.filter((p) => p.principal_id === id);
+  $("#aWaitPanel").hidden = mine.length === 0;
+  const w = $("#aWait"); w.replaceChildren(...mine.map((p) => holdCard(p)));
+  const rs = S.receipts.filter((r) => r.principal === id).reverse();
+  $("#aEmpty").hidden = rs.length > 0;
+  $("#aFeed").replaceChildren(...rs.map((r) => row(r, fresh.has(r.id), false)));
+}
+function renderInbox() {
+  const box = $("#inbox"); box.replaceChildren(...A.pending.map((p) => holdCard(p, true)));
+  $("#inboxEmpty").hidden = A.pending.length > 0;
+  const d = $("#dot"); d.hidden = A.pending.length === 0; d.textContent = A.pending.length;
+}
 let filter = "ALL";
+function renderActivity() {
+  const rs = S.receipts.slice().reverse().filter((r) => filter === "ALL" || r.decision === filter);
+  $("#feedEmpty").hidden = rs.length > 0;
+  $("#feed").replaceChildren(...rs.map((r) => row(r, fresh.has(r.id), true)));
+}
+function renderAudit() {
+  const bad = S.violations.length > 0, c = $("#audit");
+  c.className = "chip " + (bad ? "bad" : "ok");
+  c.textContent = bad ? "Records don't add up" : "Records verified";
+  c.title = bad ? S.violations.join("\n") : "Every action on record was re-checked independently and the records match what happened.";
+}
+
+// ---- routing ----------------------------------------------------------------
+let route = ["agents"];
+function go() {
+  const h = location.hash.slice(1).split("/");
+  route = ["agents", "agent", "inbox", "activity"].includes(h[0]) ? h : ["agents"];
+  const top = route[0] === "agent" ? "agents" : route[0];
+  for (const v of ["agents", "agent", "inbox", "activity"]) $("#view-" + v).hidden = v !== route[0];
+  for (const v of ["agents", "inbox", "activity"]) $("#tab-" + v).setAttribute("aria-selected", v === top);
+  if (S) render();
+}
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => { location.hash = "#" + b.dataset.view; }));
+window.addEventListener("hashchange", go);
 $("#filters").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   filter = b.dataset.f; document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", x === b));
-  if (last) renderActivity(last, new Set());
+  if (S) renderActivity();
 });
-
-// ---- gate drawing ----------------------------------------------------------
-const cv = $("#pipe"), cx = cv.getContext("2d");
-const DPR = Math.min(window.devicePixelRatio || 1, 2);
-const W = 300, H = 560, TOP = 26, STEP = 58, BOX_H = 38, CX = 38;
-cv.width = W * DPR; cv.height = H * DPR; cv.style.aspectRatio = W + "/" + H; cx.scale(DPR, DPR);
-const gateY = (i) => TOP + i * STEP;
-let refusals = GATES.map(() => 0), lit = GATES.map(() => 0), pendingGate = -1;
-const packets = [], burst = [];
-function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
-function draw() {
-  cx.clearRect(0, 0, W, H);
-  cx.strokeStyle = "rgba(120,150,210,.25)"; cx.lineWidth = 2; cx.setLineDash([4, 6]);
-  cx.beginPath(); cx.moveTo(CX, 8); cx.lineTo(CX, H - 8); cx.stroke(); cx.setLineDash([]);
-  GATES.forEach((g, i) => {
-    const y = gateY(i), glow = Math.max(0, lit[i]), hold = i === pendingGate;
-    cx.fillStyle = "rgba(14,20,36,.9)"; cx.strokeStyle = hold ? "rgba(255,176,32,.85)" : "rgba(120,150,210," + (0.28 + glow * 0.5) + ")";
-    cx.lineWidth = hold ? 2 : 1.2; rr(62, y, W - 72, BOX_H, 10); cx.fill(); cx.stroke();
-    cx.fillStyle = "#e6ecf8"; cx.font = "600 13px system-ui, sans-serif"; cx.fillText(g.label, 76, y + 17);
-    cx.fillStyle = "#8d9bb8"; cx.font = "11px system-ui, sans-serif"; cx.fillText(g.sub, 76, y + 31);
-    if (refusals[i] > 0) { cx.fillStyle = "#ff5468"; cx.font = "700 12px ui-monospace, Consolas, monospace"; cx.textAlign = "right"; cx.fillText(String(refusals[i]), W - 20, y + 17); cx.textAlign = "left"; }
-    cx.fillStyle = hold ? "#ffb020" : "rgba(57,197,255," + (0.5 + glow * 0.5) + ")";
-    cx.beginPath(); cx.arc(CX, y + BOX_H / 2, 5 + glow * 2, 0, 7); cx.fill();
-    lit[i] = Math.max(0, lit[i] - 0.02);
-  });
-  for (const p of packets) { cx.fillStyle = p.color; cx.shadowColor = p.color; cx.shadowBlur = 14; cx.beginPath(); cx.arc(CX, p.y, 6, 0, 7); cx.fill(); cx.shadowBlur = 0; }
-  for (const b of burst) { cx.strokeStyle = b.color; cx.globalAlpha = Math.max(0, b.a); cx.lineWidth = 2; cx.beginPath(); cx.arc(CX, b.y, b.r, 0, 7); cx.stroke(); cx.globalAlpha = 1; b.r += 1.3; b.a -= 0.03; }
-  for (let i = burst.length - 1; i >= 0; i--) if (burst[i].a <= 0) burst.splice(i, 1);
-}
-function step() {
-  if (view === "gate") {
-    for (const p of packets) {
-      const target = p.stopAt === GATES.length ? H : gateY(p.stopAt) + BOX_H / 2;
-      if (p.y < target) { p.y = Math.min(target, p.y + 5.5); const g = Math.round((p.y - TOP) / STEP); if (g >= 0 && g < GATES.length) lit[g] = 1; }
-      else if (!p.done) { p.done = true; p.t = performance.now(); burst.push({ y: Math.min(p.y, H - 10), r: 6, a: 1, color: p.color }); }
-    }
-    for (let i = packets.length - 1; i >= 0; i--) if (packets[i].done && performance.now() - packets[i].t > 500) packets.splice(i, 1);
-    draw();
-  }
-  requestAnimationFrame(step);
-}
-function spawn(r) {
-  if (view !== "gate") return;
-  if (packets.length > 12) packets.shift();
-  packets.push({ y: 0, stopAt: r.decision === "ACCEPT" ? GATES.length - 1 : Math.max(0, gateOf(stopOf(r).stage)), color: COL[r.decision], done: false });
+function render() {
+  renderAudit(); renderInbox();
+  if (route[0] === "agents") renderAgents();
+  else if (route[0] === "agent") renderAgent(route[1]);
+  else if (route[0] === "activity") renderActivity();
 }
 
-// ---- data ------------------------------------------------------------------
-let seen = null, last = null;
+// ---- data -------------------------------------------------------------------
+let seen = null, fresh = new Set();
 async function j(url) { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); }
-
-function renderNow(s, a, fresh) {
-  const bad = s.violations.length > 0;
-  $("#auditBig").textContent = bad ? "Problem found" : "All clear";
-  $("#auditBig").className = "big " + (bad ? "bad" : "ok");
-  $("#auditSub").textContent = bad ? s.violations.length + " receipt(s) fail the independent check" : "Independent check passed on " + s.total_receipts + " receipt" + (s.total_receipts === 1 ? "" : "s");
-  $("#auditBig").title = bad ? s.violations.join("\n") : "";
-  $("#nAcc").textContent = s.admitted; $("#nHold").textContent = s.held; $("#nDen").textContent = s.denied;
-
-  const box = $("#holds"); box.replaceChildren();
-  $("#holdsEmpty").hidden = a.pending.length > 0;
-  for (const p of a.pending) {
-    const c = {}; for (const l of p.canonical.split("\n")) { const i = l.indexOf(":"); if (i > 0) c[l.slice(0, i)] = l.slice(i + 1); }
-    const n = { verb: c.verb, what: c.what, args: {} };
-    try { for (const [k, v] of Object.entries(JSON.parse(c.args || "{}"))) n.args[k] = String(v); } catch (e) {}
-    const h = el("div", "hold"), left = Math.max(0, Math.round(p.expires - a.now));
-    h.append(el("div", "big", `${c.principal} wants to ${sentence(n)}`), el("div", "mute", `Needs ${p.approvers.join(" or ")} to approve. ${left}s left.`));
-    box.append(h);
-  }
-  const dot = $("#holdDot"); dot.hidden = a.pending.length === 0; dot.textContent = a.pending.length;
-  pendingGate = a.pending.length ? gateOf("hold") : -1;
-
-  const recent = $("#recent"); recent.replaceChildren();
-  const rs = s.receipts.slice().reverse();
-  for (const r of rs.slice(0, 6)) recent.append(row(r, fresh.has(r.id), false));
-  $("#recentEmpty").hidden = rs.length > 0; $("#seeAll").hidden = rs.length <= 6;
-}
-
-function renderActivity(s, fresh) {
-  const list = $("#feed"); list.replaceChildren();
-  const rs = s.receipts.slice().reverse().filter((r) => filter === "ALL" || r.decision === filter);
-  $("#feedEmpty").hidden = rs.length > 0;
-  for (const r of rs) list.append(row(r, fresh.has(r.id), true));
-}
-
-function renderAgents(s) {
-  const box = $("#agents"); box.replaceChildren();
-  for (const [name, p] of Object.entries(s.by_principal)) {
-    const total = p.ACCEPT + p.DENY + p.HOLD, c = el("div", "agent");
-    const head = el("div"); head.append(el("span", "nm", name), " ", el("span", "chip " + (p.key ? "ok" : ""), p.key ? "authenticated" : "no key"));
-    const bar = el("div", "bar");
-    for (const [cls, n] of [["a", p.ACCEPT], ["d", p.DENY], ["h", p.HOLD]]) { const i = el("i", cls); i.style.width = (total ? (n / total) * 100 : 0) + "%"; bar.append(i); }
-    c.append(head, bar, el("div", "mute", total ? `${p.ACCEPT} allowed, ${p.HOLD} held, ${p.DENY} blocked` : "No activity yet"));
-    if (p.last_ts) c.append(el("div", "mute", "Last active " + fmtT(p.last_ts)));
-    box.append(c);
-  }
-}
-
 async function tick() {
   try {
     const [s, a] = await Promise.all([j("/state"), j("/approval/state")]);
+    for (const p of a.pending) p.principal_id = (p.canonical.match(/^principal:(.*)$/m) || [])[1];
+    S = s; A = a;
+    fresh = new Set(seen ? s.receipts.filter((r) => !seen.has(r.id)).map((r) => r.id) : []);
+    seen = new Set(s.receipts.map((r) => r.id));
     $("#live").textContent = "live"; $("#live").classList.remove("off");
-    last = s;
-    refusals = GATES.map(() => 0);
-    for (const r of s.receipts) if (r.decision !== "ACCEPT") { const g = gateOf(stopOf(r).stage); if (g >= 0) refusals[g]++; }
-    const fresh = new Set(seen ? s.receipts.filter((r) => !seen.has(r.id)).map((r) => r.id) : []);
-    renderNow(s, a, fresh); renderActivity(s, fresh); renderAgents(s);
-    $("#bh").textContent = "boundary " + (s.boundary_hash || "").slice(0, 16);
-    if (seen === null) seen = new Set(s.receipts.map((r) => r.id));
-    else for (const r of s.receipts) if (!seen.has(r.id)) { seen.add(r.id); spawn(r); }
+    render();
   } catch (e) { $("#live").textContent = "no connection"; $("#live").classList.add("off"); }
 }
-show(location.hash.slice(1));
-tick(); setInterval(tick, 1500); draw(); requestAnimationFrame(step);
+go(); tick(); setInterval(tick, 1500);
 </script>
 </body>
 </html>
