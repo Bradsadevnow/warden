@@ -67,9 +67,12 @@
       The private key is created here and cannot be exported. The gate only ever receives the public half.
       This screen shows the exact bytes you sign. It never shows anything the agent wrote.
     </p>
+    <div class="row" style="margin-top:8px"><span class="k">Signed in</span><span class="v" id="who">no</span></div>
+    <div class="actions" id="loginrow">
+      <button class="plain" id="login">Sign in</button>
+    </div>
     <div class="actions" id="enrollrow" hidden>
-      <select id="who" aria-label="Principal to enroll this device as"></select>
-      <button class="plain" id="enroll">Enroll this device</button>
+      <button class="plain" id="enroll">Use this device to approve</button>
     </div>
   </section>
 
@@ -228,7 +231,7 @@ function card(p) {
     try {
       const sig = await crypto.subtle.sign({ name: "Ed25519" }, me.priv, new TextEncoder().encode(p.canonical));
       const r = await fetch("/approve", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nonce: p.nonce, approver: me.principal, signature: b64(sig) }) });
+        body: JSON.stringify({ nonce: p.nonce, session: login.session, signature: b64(sig) }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "rejected");
       const last = j.receipt.decision_basis[j.receipt.decision_basis.length - 1];
@@ -250,16 +253,21 @@ function sync() {
 
 function render(s) {
   skew = s.now * 1000 - Date.now();
+  if (login.session && s.now > login.expires) Object.assign(login, { session: null, principal: null, name: null });
   const hit = Object.entries(s.approvers).find(([, fp]) => fp === me.fp);
   me.principal = hit ? hit[0] : null;
   const mine = !!me.principal;
-  const sel = $("#who");
-  if (sel.options.length !== s.enrollable.length || s.enrollable.some((p, i) => sel.options[i].value !== p)) {
-    sel.replaceChildren(...s.enrollable.map((p) => { const o = el("option", null, p); o.value = p; return o; }));
-  }
-  $("#enrollrow").hidden = mine || s.enrollable.length === 0;
-  if (mine) chip("approver: " + me.principal, "ok");
-  else chip("not enrolled", "warn");
+  // Signed in = a live login session. Able to approve = that person's key is THIS device's key.
+  const who = login.principal, hasKey = who && s.approvers[who] === me.fp;
+  $("#who").textContent = who ? login.name : "no";
+  $("#loginrow").hidden = !!who;
+  $("#enrollrow").hidden = !who || !!s.approvers[who];
+  if (!s.login) chip("login is not configured", "bad");
+  else if (!who) chip("sign in to approve", "warn");
+  else if (!s.approvers[who]) chip("signed in, device not set up", "warn");
+  else if (!hasKey) chip("signed in, but this is not your device", "bad");
+  else chip("approver: " + login.name, "ok");
+  me.principal = hasKey ? who : null;
   const live = new Set(s.pending.map((p) => p.nonce));
   for (const [n, c] of cards) if (!live.has(n) && !(c.doneAt && Date.now() - c.doneAt < 5000)) { c.box.remove(); cards.delete(n); }
   if (mine) for (const p of s.pending) {
@@ -280,14 +288,40 @@ setInterval(() => { const now = (Date.now() + skew) / 1000;
   for (const c of cards.values()) { const left = Math.max(0, Math.round(c.expires - now));
     c.left.textContent = left > 0 ? "expires in " + left + "s" : "expired"; } }, 500);
 
+// ---- login. The session lives in this tab's memory only. Closing the tab signs you out.
+const login = { session: null, principal: null, name: null, expires: 0 };
+async function finishLogin(idToken, nonce) {
+  const r = await fetch("/login", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken, nonce }) });
+  const j = await r.json(); if (!r.ok) { chip(j.error || "login failed", "bad"); return; }
+  Object.assign(login, { session: j.session, principal: j.principal, name: j.name, expires: j.expires });
+  poll();
+}
+$("#login").addEventListener("click", async () => {
+  const j = await (await fetch("/login/start")).json();
+  if (!j.authorize_url) { chip(j.error || "login is not configured", "bad"); return; }
+  sessionStorage.setItem("warden-nonce", j.nonce);
+  const u = new URL(j.authorize_url);
+  u.search = new URLSearchParams({ client_id: j.client_id, nonce: j.nonce, response_type: "id_token",
+    scope: "openid email", redirect_uri: location.origin + location.pathname }).toString();
+  location.href = u.toString();                       // off to the identity provider and back
+});
 $("#enroll").addEventListener("click", async () => {
   const r = await fetch("/enroll", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ principal: $("#who").value, public_key: me.pubB64 }) });
+    body: JSON.stringify({ session: login.session, public_key: me.pubB64 }) });
   const j = await r.json(); if (!r.ok) { chip(j.error || "enrolment failed", "bad"); return; }
   setMood("signed", 1500); render(j);
 });
 
-initDevice().then(() => { poll(); setInterval(poll, 1500); })
+// Back from the provider: the token is in the URL fragment. Use it once, then remove it.
+async function resumeLogin() {
+  const m = /[#&]id_token=([^&]+)/.exec(location.hash), nonce = sessionStorage.getItem("warden-nonce");
+  if (!m || !nonce) return;
+  history.replaceState(null, "", location.pathname); sessionStorage.removeItem("warden-nonce");
+  await finishLogin(decodeURIComponent(m[1]), nonce);
+}
+
+initDevice().then(resumeLogin).then(() => { poll(); setInterval(poll, 1500); })
   .catch((e) => { chip("unsupported", "bad"); $("#devnote").textContent = e.message; $("#empty").hidden = true; });
 </script>
 </body>

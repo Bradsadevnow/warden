@@ -43,6 +43,7 @@ principals:
     kind: human
     groups: [supervisors]
     name: Sam
+    login: sam@lab.test      # the verified email the identity provider reports for Sam
 
 # POLICY. Deny beats everything. No matching allow is a deny. Hold rules are
 # conjunctive and need a fresh signature from one of their approvers, who can never

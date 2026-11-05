@@ -51,9 +51,10 @@ DONE
 - Warden as a network service; signed agent nominations; replay/stale/impersonation refused (`agentauth.py`, `client.py`, `test_network.py`)
 - Dashboard rebuilt around agents: agent list, agent page with generated plain-language permissions, "waiting for you" inbox, activity
 
+- Owner is the approver: a hold rule can name `owner`; the compiler resolves it per agent (`approvers: [owner]`)
+- Approver identity, no trust-on-first-use: OIDC login (`oidc.py`: RS256/ES256 only, issuer, audience, expiry, nonce, verified email; `none`/HS256/key-confusion refused), a person is mapped by `login:` email and bound to the provider's `sub`; a login session is needed to enroll a device key (once) and to approve; approval = login (who) + device key (which device) + signature (which action). `standin_idp.py` is a LAB-ONLY identity provider used until a real one (Google, GitHub-OIDC, Microsoft) is configured in `idp.json`. Tests: `test_identity.py`. Browsers only allow the device key on `localhost`/HTTPS, so the approval page is reached through `ssh -L 8077:127.0.0.1:8077 brad@10.77.77.12`.
+
 NEXT, in order
-1. **Owner is the approver.** A hold rule can name "the agent's owner"; the compiler resolves it per agent.
-2. **Approver identity, no trust-on-first-use.** Login through an OIDC/OAuth provider (token signature, issuer, audience, expiry, verified email, mapped to the owner; reject `none`/HS256). Enrollment of the device key happens only after a successful login. Approval = login (who) + device key (which device) + signature over the exact action. Tested against a stand-in identity provider; a real provider (Google, GitHub or Microsoft) is plugged in later.
 3. **Door log.** Requests refused before the gate (unsigned, forged, replayed, unknown agent) are recorded and shown on the dashboard.
 4. **Domains.** Each domain is a rulebook + tool module + seed data hosted by the one service, with its own agent and owner. Order: Accounting, IT, then Clinic.
 5. **Record-level rule** ("only its own assigned patients"), then Clinic.

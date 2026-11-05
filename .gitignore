@@ -9,3 +9,7 @@ demo/sample_*.json
 
 demo/keys/
 demo/agents.json
+demo/idp.json
+demo/standin.log
+demo/tunnel.log
+demo/warden.log

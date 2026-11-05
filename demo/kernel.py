@@ -130,6 +130,15 @@ class Boundary:
             self.effective_groups[p] = eff
         if "owner" in self.principals or "owner" in groups:
             raise BoundaryError("`owner` is reserved: it names an agent's owner in a hold rule")
+        logins = {}
+        for p, d in self.principals.items():
+            if "login" in d:
+                e = d["login"]
+                if d["kind"] != "human" or not isinstance(e, str) or "@" not in e:
+                    raise BoundaryError(f"principal {p!r}: `login` is a person's email, and only humans have one")
+                if e.lower() in logins:
+                    raise BoundaryError(f"principal {p!r}: login {e!r} already belongs to {logins[e.lower()]!r}")
+                logins[e.lower()] = p
         for p, d in self.principals.items():
             o = d.get("owner")
             if o is not None and (d["kind"] != "agent" or
