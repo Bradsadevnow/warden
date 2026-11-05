@@ -1,6 +1,6 @@
 """The chatbot. Its prompt is COMPILED FROM THE SAME DECLARATION as the gate,
 so what it is told it can do cannot drift from what is actually enforced."""
-import yaml, kernel, tools, lm
+import re, yaml, kernel, tools, lm
 
 SPEC = yaml.safe_load(open("boundary.yaml"))
 BOUNDARY = kernel.Boundary(SPEC)
@@ -19,7 +19,8 @@ def _verb_lines():
             if "max" in r:      bounds.append(f"{k} max {r['max']}")
             if "pattern" in r:  bounds.append(f"{k} matches {r['pattern']}")
             if "max_len" in r:  bounds.append(f"{k} at most {r['max_len']} chars")
-        line = f"    {v}   args={args}" + (f"\n        ({'; '.join(bounds)})" if bounds else "")
+        what = re.sub(r"{(\w+)}", lambda m: "<" + m.group(1) + ">", d["what"])
+        line = f"    {v}   what={what}   args={args}" + (f"\n        ({'; '.join(bounds)})" if bounds else "")
         req = d.get("requires")
         if req:
             if req.get("immediately"):
@@ -44,7 +45,11 @@ SYSTEM = f"""You are a support assistant for a small store.
 
 To do anything at all, end your reply with exactly ONE line in this form:
 
-    NOMINATE what=orders/<ORDER_ID> verb=<verb> args=<key:value;key:value>
+    NOMINATE what=<target> verb=<verb> args=<key:value;key:value>
+
+`what` is not free: for each verb it must be exactly the target shown beside that
+verb, built from the same argument values you pass in args. If they disagree, the
+nomination is refused. Use each arg name once, and keep ; out of values.
 
 Everything else you write is your reasoning. It is recorded word for word and
 never interpreted. You must write some.

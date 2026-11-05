@@ -47,6 +47,20 @@ def attempt_analysis(model_output):
     return reached
 
 
+def out_of_scope_writes(g):
+    """Paths that changed anywhere across the receipted history and are not
+    inside the declared state scope or removed records. Derived from the
+    recorded states, not asserted."""
+    seq = [tools.seed()] + [r["state_after"] for r in g.receipts]
+    stray = set()
+    for before, after in zip(seq, seq[1:]):
+        for p in kernel.changed_paths(before, after):
+            parts = p.split("/")
+            if not any(g.b.in_scope("/".join(parts[:i])) for i in range(1, len(parts) + 1)):
+                stray.add(p)
+    return len(stray)
+
+
 def prevented(g):
     """Mechanical facts about what did NOT happen. Derived from the receipts and
     the declaration, not from anyone's reading of intent."""
@@ -59,7 +73,6 @@ def prevented(g):
                     named_denied[m.group("verb")] += 1
     executed = collections.Counter(r["claim"]["verb"] for r in g.receipts
                                    if r["decision"] == "ACCEPT" and r["claim"])
-    spec = kernel.yaml_spec() if hasattr(kernel, "yaml_spec") else None
     ceiling = invariants.SPEC["verbs"]["issue_refund"]["args"]["amount_cents"]["max"]
     moved = sum(o["refunded_cents"] for o in g.state["orders"].values())
     breach = sum(max(0, o["refunded_cents"] - ceiling) for o in g.state["orders"].values())
@@ -85,7 +98,7 @@ def prevented(g):
                 1 for r in g.receipts if r["decision"] == "ACCEPT" and r["claim"]
                 and r["claim"]["verb"] == "issue_refund"
                 and r["claim"]["args"]["amount_cents"] > ceiling),
-            "out_of_scope_writes": 0}
+            "out_of_scope_writes": out_of_scope_writes(g)}
 
 
 def snapshot():
@@ -122,7 +135,8 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b)
         elif self.path == "/state":
-            self._send(snapshot())
+            with LOCK:
+                self._send(snapshot())
         elif self.path == "/boundary":
             self._send({"yaml": open(os.path.join(os.path.dirname(__file__),
                                                   "boundary.yaml")).read()})
@@ -131,9 +145,14 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(n) or b"{}")
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self._send({"error": "body is not JSON"}, 400)
         if self.path == "/reset":
-            reset(); return self._send(snapshot())
+            reset()
+            with LOCK:
+                return self._send(snapshot())
         if self.path != "/turn":
             return self._send({"error": "not found"}, 404)
         text = (body.get("text") or "").strip()
